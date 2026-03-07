@@ -1,0 +1,38 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash(git commit*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd backend && python -m pytest tests/ -x --timeout=60 -q 2>&1 | tail -5 || (echo '{\"block\": true, \"message\": \"Backend tests failing. Fix before commit.\"}' 1>&2 && exit 2)",
+            "timeout": 120
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(rm -rf*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"block\": true, \"message\": \"Destructive rm -rf blocked. Use targeted file deletion.\"}' 1>&2 && exit 2",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash(make dev*|uvicorn*|python*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Reminder: run make test before committing'",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
