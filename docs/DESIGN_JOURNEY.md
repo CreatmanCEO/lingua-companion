@@ -671,3 +671,52 @@ COMPANION_INITIATE_DELAY_MIN=5    # через сколько минут compani
 - ❌ Автоматический Reconstruction после каждой реплики — только по [Analyse]
 - ❌ Автоматические Variant Cards в Free Chat — только по запросу
 
+
+---
+
+## 16. Prototype Changelog
+
+### v1 → v2 (2026-03-11)
+
+**Bugs fixed:**
+
+| # | Проблема | Решение |
+|---|---|---|
+| 1 | Horizontal scroll вариантов не работал | `variants-scroll-outer { margin: 0 -16px; overflow: hidden }` + `variants-scroll { padding: 4px 16px }` — edge-to-edge с правильным clipping |
+| 2 | 💾 иконка непонятна пользователям | Заменена на текстовые кнопки `+ Save` / `✓ Saved` с toast-подтверждением |
+| 3 | Variant cards без контекста | Добавлен `.variant-sub` — подпись когда использовать стиль |
+| 4 | Hold-to-record = два тапа | Реализован через `touchstart`/`touchend` + `mousedown`/`mouseup` с `preventDefault()` |
+| 5 | Companion reply — 3 рандомных строки | Подключён реальный Claude API (`claude-sonnet-4-20250514`), Alex persona, IT system prompt |
+| 6 | Светлая тема: карточки плоские | `var(--shadow)` применяется на всех компонентах в light mode |
+| 7 | Scenario таб пустой | 6 scenario cards: Stand-up, Code Review, Tech Demo, Interview, Sprint Planning, Slack |
+| 8 | Avatar — буква вместо фото | SVG placeholder-силуэт через CSS `::after` (до генерации реальных фото) |
+| 9 | Нет drag-to-scroll на десктопе | `mousedown`/`mousemove` drag на `.variants-scroll` |
+| 10 | Нет hover на Rich Card | `hover { border-color: accent-soft; transform: translateY(-1px) }` |
+
+**Что НЕ реализовано в прототипе (сознательно):**
+
+- Настоящий STT (голос транскрибируется как заглушка)
+- Onboarding flow (3 свайпа)
+- Session Summary sheet
+- Phrase Library экран
+- Grammar tooltip при тапе на слово
+- Companion avatars (фото) — нужна генерация
+
+### Файлы прототипа
+
+```
+docs/prototype/
+├── index.html     ← интерактивный прототип v2
+└── README.md      ← инструкция + таблица фичей
+```
+
+### Инструкция для Claude Code
+
+При работе с фронтендом — **открыть `docs/prototype/index.html` первым делом**.
+Прототип является единственным источником истины по:
+- Компонентной структуре (bubble, voice-bar, variant-card, rich-card)
+- CSS-переменным (design tokens)
+- Интерактивным состояниям (4 состояния Voice Bar)
+- Логике показа Reconstruction + Variants (только по [Analyse])
+
+Next.js компоненты должны точно воспроизводить прототип — не изобретать новый дизайн.
