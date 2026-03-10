@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     # LLM — swap provider via single env var
     LLM_MODEL: str = "groq/llama-3.3-70b-versatile"
     GROQ_API_KEY: Optional[str] = None
+    DEEPGRAM_API_KEY: Optional[str] = None
+    STT_PROVIDER: str = "deepgram"  # deepgram | groq
     GEMINI_API_KEY: Optional[str] = None
 
     # STT
