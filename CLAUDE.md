@@ -3,44 +3,56 @@
 ## Project Overview
 
 Voice-first AI language learning platform for Russian-speaking IT professionals.
-Supports Russian/English code-switching via hybrid STT pipeline.
+Core differentiator: native Russian/English code-switching support.
+Target user: IT developer, A2-B1 English, wants to speak like a colleague, not a textbook.
 
-## Architecture
+## Tech Stack
 
-- **Frontend**: Next.js 15 (App Router), TypeScript, Tailwind CSS, shadcn/ui
-- **Backend**: Python 3.12, FastAPI, Celery + Redis
-- **Database**: PostgreSQL + pgvector (via Supabase in Phase 1)
-- **AI - LLM**: Groq API (Llama 3.3 70B) → Gemini 2.0 Flash (Phase 2)
-- **AI - STT**: Groq Whisper large-v3-turbo
-- **AI - TTS**: Google Neural2 TTS
-- **AI - Pronunciation**: Azure Speech SDK (Phase 2)
-- **AI - Embeddings**: multilingual-e5-large (runs locally, no external API)
-- **Vector DB**: pgvector → Qdrant (Phase 2)
-- **Infrastructure**: VPS 178.17.50.45 (4GB RAM / 60GB), Docker Compose, Coolify, Nginx
-- **Monorepo**: Turborepo + pnpm workspaces
+| Layer | Technology | Notes |
+|-------|-----------|-------|
+| Frontend | Next.js 15 (App Router), TypeScript, Tailwind CSS, shadcn/ui | Port 3001 |
+| Backend | Python 3.12, FastAPI, Celery + Redis | Port 8001 |
+| Database | PostgreSQL + pgvector (Supabase Phase 1) | Port 5433 |
+| Cache / Queue | Redis | Port 6380 |
+| STT Primary | Deepgram Nova-3, language=multi | Best code-switching (6/6) |
+| STT Fallback | Groq Whisper large-v3-turbo | Fast (0.67s), loses mixed speech |
+| LLM Phase 1 | Groq Llama 3.3 70B via LiteLLM | |
+| LLM Phase 2 | Gemini 2.0 Flash | Hot-swap via LLM_MODEL env |
+| TTS Phase 1 | Google Neural2 | |
+| TTS Phase 2 | ElevenLabs | |
+| Embeddings | Google Embeddings API | Saves 800MB RAM vs local model |
+| Pronunciation | Azure Speech SDK | Phase 2 only |
+| Vector DB | pgvector → Qdrant (Phase 2) | |
+| Monorepo | Turborepo + pnpm workspaces | |
+| Infra | Docker Compose, Nginx, Coolify | VPS 178.17.50.45 |
 
 ## Repository Structure
 
 ```
-apps/web/          — Next.js 15 frontend
-apps/mobile/       — Expo React Native (Phase 2, placeholder)
-packages/          — Shared code (types, api-client, utils)
+apps/web/          — Next.js 15 frontend (messenger UI)
+packages/          — Shared types, api-client
 backend/           — FastAPI + Celery workers
-infra/             — Docker Compose, Nginx, Coolify configs
-docs/              — Architecture docs
-plans/             — Claude Code implementation plans (subagent output)
-.claude/           — Claude Code agents, hooks, rules
+  app/agents/      — 9 AI agents (stt, reconstruction, phrase_variants, ...)
+  app/api/routes/  — HTTP + WebSocket endpoints
+  app/core/        — Config, database, auth
+  app/models/      — SQLAlchemy models
+  app/services/    — Business logic
+  tests/           — pytest tests
+infra/             — docker-compose.yml, nginx configs
+docs/              — Architecture, VPS setup, API keys
+plans/             — Claude Code implementation plans (planner agent output)
+.claude/           — Claude Code agents, settings
 ```
 
 ## Key Commands
 
 ```bash
-make dev           # Start all services (Next.js + FastAPI + Redis + DB)
-make dev-web       # Start only frontend
-make dev-api       # Start only backend
-make test          # Run full test suite (pytest + vitest)
-make test-api      # Backend tests only
-make test-web      # Frontend tests only
+make dev           # Start all services
+make dev-api       # Backend only (FastAPI + Celery + Redis + DB)
+make dev-web       # Frontend only (Next.js)
+make test          # Full test suite
+make test-api      # pytest backend
+make test-web      # vitest frontend
 make lint          # Lint everything
 make build         # Production build
 make deploy        # Deploy via Coolify webhook
@@ -56,7 +68,8 @@ make deploy        # Deploy via Coolify webhook
 - One task at a time — do NOT make multiple unrelated changes simultaneously
 - If unsure about intent — ASK, do not guess
 - NEVER break existing API contracts without updating all consumers
-- When modifying AI pipeline — test with sample audio files in tests/fixtures/
+- When modifying AI pipeline — test with sample audio in tests/fixtures/
+- When changing STT — remember Deepgram is primary, Groq is fallback (see docs/AI_PIPELINE.md)
 
 ## Working Style
 
@@ -64,62 +77,86 @@ make deploy        # Deploy via Coolify webhook
 - Small diffs: one module → tests → next module
 - After every change: run tests and show output
 - Use subagents for codebase research to preserve main context window
-- At 60-70% context utilization: /compact with summary of current state
+- At 60-70% context: /compact with summary of current state
 - At topic switch: /clear
 
 ## Agents
 
-- Use `planner` agent before any complex task
-- Use `tester` agent after code changes
-- Use `code-reviewer` agent before commits
+- `planner` — before any complex task, research + plan, never writes code
+- `tester` — after code changes, run and interpret tests
+- `code-reviewer` — before commits, review for correctness and style
 
 ## AI Pipeline Notes
 
-- Voice pipeline latency target: < 3 seconds end-to-end
-- STT → LLM chain must be async with streaming responses
-- Groq API key env var: GROQ_API_KEY
-- Embeddings run locally — no external API call for memory search
-- Azure Speech key: AZURE_SPEECH_KEY + AZURE_SPEECH_REGION
-- Gemini key: GOOGLE_API_KEY
+See full pipeline spec: **docs/AI_PIPELINE.md**
 
-## VPS / Infrastructure
+Key facts:
+- Voice pipeline latency budget: **< 3 seconds end-to-end**
+- STT primary: Deepgram Nova-3 `language=multi` (spike confirmed 2026-03-10)
+- STT fallback: Groq Whisper (auto-switch on Deepgram failure)
+- LLM switching: change `LLM_MODEL` env var — LiteLLM handles the rest
+- Reconstruction + PhraseVariants run **in parallel** after STT
+- Memory writes are **async, non-blocking**
+- Embeddings: Google API (Phase 1) to save RAM on 4GB VPS
 
-- VPS IP: 178.17.50.45
-- RAM: 4GB | Storage: 60GB
-- All services run in Docker containers via Docker Compose
-- Coolify manages deployments (webhook auto-deploy from GitHub)
-- Nginx handles SSL termination + reverse proxy
-- Port allocation documented in: docs/VPS_SETUP.md
-
-## Port Allocation (178.17.50.45)
+## Environment Variables (key ones)
 
 ```
-80    → Nginx (HTTP → redirect to HTTPS)
-443   → Nginx (HTTPS, terminates SSL)
-3000  → Next.js web app (internal)
-8000  → FastAPI backend (internal)
-5432  → PostgreSQL (internal only)
-6379  → Redis (internal only)
-8001  → Qdrant (internal only, Phase 2)
-3001  → Reserved for future service
-8888  → Coolify panel
+STT_PROVIDER=deepgram          # deepgram | groq
+DEEPGRAM_API_KEY=              # Nova-3, language=multi
+GROQ_API_KEY=                  # Whisper fallback + LLM
+LLM_MODEL=groq/llama-3.3-70b-versatile
+GEMINI_API_KEY=                # Lingua Bro project (separate quota)
+GOOGLE_TTS_API_KEY=
+DATABASE_URL=
+REDIS_URL=redis://localhost:6380/0
+SECRET_KEY=
 ```
+
+Full list: see .env.example and docs/API_KEYS.md
+
+## VPS Infrastructure (178.17.50.45)
+
+- RAM: 4GB | Disk: 60GB | OS: Ubuntu 24.04
+- Swap: 2GB (persisted in /etc/fstab)
+- Coolify panel: http://178.17.50.45:8000
+
+### Port Allocation
+
+```
+22    → SSH
+80    → Nginx (existing: creatman.site portfolio)
+443   → Nginx (existing: creatman.site portfolio)
+3000  → creatman-portfolio (Next.js, existing)
+3001  → LinguaCompanion web app
+5433  → PostgreSQL (LinguaCompanion)
+6380  → Redis (LinguaCompanion)
+6333  → Qdrant (Phase 2)
+8000  → Coolify panel
+8001  → FastAPI backend (LinguaCompanion)
+32685 → Amnezia VPN (UDP)
+```
+
+Full VPS setup: **docs/VPS_SETUP.md**
 
 ## Phase 1 Scope (MVP)
 
-1. Hybrid STT (RU+EN code-switching via Groq Whisper)
-2. Sentence reconstruction via LLM (Groq Llama 3.3 70B)
-3. Messenger-style chat UI (Next.js + shadcn/ui)
-4. Conversation AI with basic streaming responses
-5. User memory (interests, history, vocab weaknesses via pgvector)
-6. Basic topic discovery (RSS + Hacker News API)
-7. Auth (NextAuth.js v5 — Google OAuth + email)
+1. Hybrid STT: Deepgram Nova-3 primary + Groq fallback
+2. Reconstruction Agent: grammar correction + RU→EN filling
+3. Phrase Variants Agent: 5 simultaneous style variants (Simple/Professional/Colloquial/Slang/Idiom)
+4. Companion Agent: dialogue with 5 style profiles
+5. Messenger-style chat UI (Next.js + shadcn/ui + WebSocket)
+6. Voice recording in browser (MediaRecorder API → WebSocket)
+7. User Memory: pgvector-based RAG (interests, vocab gaps, history)
+8. Topic Discovery: Celery task, HN + Reddit + RSS every 4h
+9. Auth: NextAuth.js v5 (Google OAuth + email magic link)
+10. Analytics: passive aggregator (speed, vocab, grammar trends)
 
 ## Out of Scope for Phase 1
 
-- Pronunciation analysis → Phase 2
-- Mobile app → Phase 2
+- Pronunciation analysis (Azure Speech SDK) → Phase 2
+- Mobile app (Expo React Native) → Phase 2
 - Payments/subscriptions → Phase 2
 - Shadowing trainer → Phase 2
-- Retelling trainer with video → Phase 2
 - Multi-user rooms → Phase 2
+- Self-hosted PostgreSQL (using Supabase in Phase 1) → Phase 2
