@@ -1,214 +1,250 @@
-# VPS Setup Guide — 178.17.50.45
+# VPS Setup — 178.17.50.45
 
-## Server Specs
+## Актуальное состояние сервера (проверено 2026-03-10)
 
-- **IP**: 178.17.50.45
-- **RAM**: 4GB
-- **Storage**: 60GB
-- **OS**: Ubuntu 22.04 (recommended)
+| Параметр | Значение |
+|----------|----------|
+| RAM | 4GB (2.1GB доступно) |
+| Диск | 59GB (31GB свободно) |
+| Swap | 2GB (увеличен) |
+| OS | Ubuntu 24.04 |
+| Docker | Установлен ✅ |
+| Coolify | Установлен, работает на :8000 ✅ |
 
-## Port Allocation
+---
+
+## Занятые порты (существующие сервисы)
 
 ```
-Port   Service              Access
-─────────────────────────────────────────────
-22     SSH                  External (your IP only)
-80     Nginx HTTP           External → redirect to 443
-443    Nginx HTTPS          External
-8888   Coolify Panel        External (or tunnel)
-3000   Next.js              Internal only (via Nginx)
-8000   FastAPI              Internal only (via Nginx)
-5432   PostgreSQL           Internal only
-6379   Redis                Internal only
-6333   Qdrant               Internal only (Phase 2)
-9000   MinIO (if needed)    Internal only
+22      SSH
+80      Nginx → creatman.site (портфолио)
+443     Nginx → creatman.site (HTTPS)
+3000    creatman-portfolio (Next.js)
+6001    Coolify realtime
+6002    Coolify realtime
+8000    Coolify панель
+32685   Amnezia VPN (UDP)
 ```
 
-**Note**: All ports scanned on 2026-03-07 — all showed as filtered/closed externally. Firewall is active. Open only what's needed.
+## Порты для LinguaCompanion
 
-## Step 1: Initial Server Setup
-
-```bash
-# Connect to VPS
-ssh root@178.17.50.45
-
-# Update system
-apt update && apt upgrade -y
-
-# Install Docker
-curl -fsSL https://get.docker.com | sh
-usermod -aG docker $USER
-
-# Install Docker Compose
-apt install docker-compose-plugin -y
-
-# Install Nginx
-apt install nginx -y
-
-# Install Certbot (SSL)
-apt install certbot python3-certbot-nginx -y
-
-# Open required ports in firewall
-ufw allow 22/tcp
-ufw allow 80/tcp
-ufw allow 443/tcp
-ufw allow 8888/tcp   # Coolify panel
-ufw enable
+```
+3001    → Next.js web app (lingua.creatman.site)
+8001    → FastAPI backend  (api.lingua.creatman.site)
+5433    → PostgreSQL (внутренний)
+6380    → Redis (внутренний)
+6333    → Qdrant (внутренний, Phase 2)
 ```
 
-## Step 2: Install Coolify
+---
 
-```bash
-# Install Coolify (self-hosted PaaS)
-curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash
+## Coolify
 
-# Access Coolify panel at: http://178.17.50.45:8888
-# Complete initial setup in browser
+Уже установлен. Панель: `http://178.17.50.45:8000`
+
+Подключить репозиторий:
+1. Открыть Coolify → Add New Resource → GitHub
+2. Выбрать `CreatmanCEO/lingua-companion`
+3. Настроить webhook для авто-деплоя при push в `main`
+
+---
+
+## Добавить домен для LinguaCompanion
+
+В DNS (Cloudflare или reg.ru) добавить A-записи:
+```
+lingua.creatman.site    → 178.17.50.45
+api.lingua.creatman.site → 178.17.50.45
 ```
 
-## Step 3: DNS Setup
+Nginx конфиг добавить в `creatman-nginx` контейнер.
 
-Point your domain to the VPS:
-```
-A record:  lingua.yourdomain.com → 178.17.50.45
-A record:  api.yourdomain.com    → 178.17.50.45
-```
+---
 
-## Step 4: SSL Certificate
-
-```bash
-# After DNS propagates
-certbot --nginx -d lingua.yourdomain.com -d api.yourdomain.com
-```
-
-## Step 5: Clone and Configure Project
-
-```bash
-# On VPS
-cd /opt
-git clone https://github.com/CreatmanCEO/lingua-companion.git
-cd lingua-companion
-cp .env.example .env
-nano .env  # Fill in all API keys
-```
-
-## Step 6: Docker Compose Services
+## Docker Compose для LinguaCompanion
 
 ```yaml
-# infra/docker/docker-compose.yml (reference)
+# lingua-companion/infra/docker/docker-compose.yml
 services:
   web:
-    build: ./apps/web
-    ports: ["3000:3000"]
-    env_file: .env
+    build: ../../apps/web
+    ports: ["3001:3000"]
+    env_file: ../../.env
+    restart: unless-stopped
 
   api:
-    build: ./backend
-    ports: ["8000:8000"]
-    env_file: .env
+    build: ../../backend
+    ports: ["8001:8000"]
+    env_file: ../../.env
     depends_on: [postgres, redis]
+    restart: unless-stopped
 
   celery:
-    build: ./backend
-    command: celery -A app.celery worker
-    env_file: .env
+    build: ../../backend
+    command: celery -A app.celery worker --loglevel=info
+    env_file: ../../.env
     depends_on: [redis]
+    restart: unless-stopped
 
   postgres:
     image: pgvector/pgvector:pg16
+    ports: ["5433:5432"]
     environment:
       POSTGRES_DB: lingua_companion
+      POSTGRES_USER: lingua
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-    volumes: ["pgdata:/var/lib/postgresql/data"]
+    volumes:
+      - lingua_pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
-    volumes: ["redisdata:/data"]
-
-  nginx:
-    image: nginx:alpine
-    ports: ["80:80", "443:443"]
+    ports: ["6380:6379"]
     volumes:
-      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf
-      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - lingua_redisdata:/data
+    restart: unless-stopped
+
+volumes:
+  lingua_pgdata:
+  lingua_redisdata:
 ```
 
-## Step 7: Nginx Configuration
+---
+
+## Nginx конфиг для LinguaCompanion
+
+Добавить файл в контейнер `creatman-nginx`:
 
 ```nginx
-# /etc/nginx/sites-available/lingua-companion
+# lingua.conf
 server {
-    listen 443 ssl;
-    server_name lingua.yourdomain.com;
+    listen 80;
+    server_name lingua.creatman.site;
+    return 301 https://$server_name$request_uri;
+}
 
-    ssl_certificate /etc/letsencrypt/live/lingua.yourdomain.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/lingua.yourdomain.com/privkey.pem;
+server {
+    listen 443 ssl http2;
+    server_name lingua.creatman.site;
+
+    ssl_certificate     /etc/letsencrypt/live/lingua.creatman.site/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/lingua.creatman.site/privkey.pem;
 
     location / {
-        proxy_pass http://localhost:3000;
+        proxy_pass http://host.docker.internal:3001;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
     }
 }
 
 server {
-    listen 443 ssl;
-    server_name api.yourdomain.com;
+    listen 443 ssl http2;
+    server_name api.lingua.creatman.site;
+
+    ssl_certificate     /etc/letsencrypt/live/api.lingua.creatman.site/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api.lingua.creatman.site/privkey.pem;
 
     location / {
-        proxy_pass http://localhost:8000;
+        proxy_pass http://host.docker.internal:8001;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
     }
 
+    # WebSocket для голосового pipeline
     location /ws {
-        proxy_pass http://localhost:8000;
+        proxy_pass http://host.docker.internal:8001;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "Upgrade";
+        proxy_read_timeout 3600;
     }
 }
 ```
 
-## Step 8: Coolify Auto-Deploy Setup
+---
 
-1. In Coolify panel: Add new resource → GitHub repository
-2. Connect to `CreatmanCEO/lingua-companion`
-3. Set build command per service
-4. Add webhook in GitHub → Settings → Webhooks
-5. Every push to `main` triggers auto-deploy
-
-## Memory Optimization for 4GB VPS
+## Мониторинг
 
 ```bash
-# Add swap space as buffer
-fallocate -l 2G /swapfile
-chmod 600 /swapfile
-mkswap /swapfile
-swapon /swapfile
-echo '/swapfile none swap sw 0 0' >> /etc/fstab
+# Статус всех контейнеров
+docker ps
 
-# Limit PostgreSQL memory
-# In postgresql.conf:
-shared_buffers = 256MB
-work_mem = 16MB
-maintenance_work_mem = 128MB
-```
+# Логи LinguaCompanion
+docker logs lingua-api -f
+docker logs lingua-web -f
 
-## Monitoring
-
-```bash
-# Check service status
-docker compose ps
-docker compose logs -f api
-
-# Check memory usage
-free -h
+# Использование ресурсов
 docker stats
 
-# Check disk usage
+# Память
+free -h
+
+# Диск
 df -h
 ```
+
+---
+
+## Технический spike (проверка Whisper code-switching)
+
+### Что это и зачем
+
+Перед началом разработки нужно убедиться что Groq Whisper корректно
+распознаёт смешанную русско-английскую речь. Это главный технический риск.
+
+### Шаги
+
+**1. Запиши 5 фраз на телефоне** (голосовые заметки / диктофон):
+```
+"Yesterday я работал над automation pipeline"
+"Мне нужно implement новый feature до Friday"
+"У нас был deploy сегодня и всё сломалось"
+"Я нашёл баг в authentication модуле"
+"Наш team делает code review каждую пятницу"
+```
+
+**2. Скинь файлы на компьютер** (любой формат: m4a, mp3, wav, ogg)
+
+**3. Создай файл `spike_stt.py`:**
+```python
+import os
+from groq import Groq
+
+client = Groq(api_key=os.environ["GROQ_API_KEY"])
+
+def test(path):
+    with open(path, "rb") as f:
+        result = client.audio.transcriptions.create(
+            file=(path, f.read()),
+            model="whisper-large-v3-turbo",
+            response_format="verbose_json",
+            language=None,  # авто-определение — важно!
+        )
+    print(f"\nФайл: {path}")
+    print(f"Текст: {result.text}")
+    print(f"Язык: {result.language}")
+
+# Запусти для каждого файла
+test("phrase1.m4a")
+test("phrase2.m4a")
+# ...
+```
+
+**4. Установи библиотеку и запусти:**
+```bash
+pip install groq
+export GROQ_API_KEY=твой_ключ
+python spike_stt.py
+```
+
+**5. Что считать успехом:**
+- ✅ Русские слова не потеряны и не заменены английскими
+- ✅ Смешанные фразы распознаны полностью
+- ✅ Latency < 1 сек на фразу
+- ❌ Если русские слова искажаются → тест с `language="ru"` + отдельный English pass
+
+**Общее время spike: 1-2 часа включая запись фраз.**
