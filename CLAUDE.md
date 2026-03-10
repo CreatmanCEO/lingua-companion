@@ -12,36 +12,37 @@ Target user: IT developer, A2-B1 English, wants to speak like a colleague, not a
 |-------|-----------|-------|
 | Frontend | Next.js 15 (App Router), TypeScript, Tailwind CSS, shadcn/ui | Port 3001 |
 | Backend | Python 3.12, FastAPI, Celery + Redis | Port 8001 |
-| Database | PostgreSQL + pgvector (Supabase Phase 1) | Port 5433 |
-| Cache / Queue | Redis | Port 6380 |
-| STT Primary | Deepgram Nova-3, language=multi | Best code-switching (6/6) |
-| STT Fallback | Groq Whisper large-v3-turbo | Fast (0.67s), loses mixed speech |
-| LLM Phase 1 | Groq Llama 3.3 70B via LiteLLM | |
-| LLM Phase 2 | Gemini 2.0 Flash | Hot-swap via LLM_MODEL env |
+| Database | PostgreSQL + pgvector (Supabase) | `chqbcqabqrnaqsiaomly.supabase.co` |
+| Cache / Queue | Upstash Redis (TLS) | `darling-dove-67484.upstash.io:6379` |
+| STT Primary | **Deepgram Nova-3, language=multi** | Spike confirmed: 6/6 code-switching ✅ |
+| STT Fallback | Groq Whisper large-v3-turbo | Fast (0.67s), auto-switch on Deepgram failure |
+| LLM Phase 1 | Groq Llama 3.3 70B via LiteLLM | Hot-swap via LLM_MODEL env |
+| LLM Phase 2 | Gemini 2.5 Flash (lingua-bro GCP project) | Separate quota |
 | TTS Phase 1 | Google Neural2 | |
 | TTS Phase 2 | ElevenLabs | |
 | Embeddings | Google Embeddings API | Saves 800MB RAM vs local model |
 | Pronunciation | Azure Speech SDK | Phase 2 only |
 | Vector DB | pgvector → Qdrant (Phase 2) | |
 | Monorepo | Turborepo + pnpm workspaces | |
-| Infra | Docker Compose, Nginx, Coolify | VPS 178.17.50.45 |
+| Infra | Docker Compose, Coolify | VPS 178.17.50.45 |
 
 ## Repository Structure
 
 ```
-apps/web/          — Next.js 15 frontend (messenger UI)
+apps/web/          — Next.js 15 frontend (messenger UI) [не инициализирован]
 packages/          — Shared types, api-client
 backend/           — FastAPI + Celery workers
-  app/agents/      — 9 AI agents (stt, reconstruction, phrase_variants, ...)
-  app/api/routes/  — HTTP + WebSocket endpoints
-  app/core/        — Config, database, auth
+  app/agents/      — 9 AI agents (stt ✅, остальные — заглушки)
+  app/api/routes/  — HTTP + WebSocket endpoints [пусто — следующий шаг]
+  app/core/        — Config ✅, database, auth
   app/models/      — SQLAlchemy models
   app/services/    — Business logic
   tests/           — pytest tests
-infra/             — docker-compose.yml, nginx configs
-docs/              — Architecture, VPS setup, API keys
+infra/             — docker-compose.yml ✅, nginx configs
+docs/              — Architecture ✅, VPS setup ✅, AI Pipeline ✅, API keys ✅
 plans/             — Claude Code implementation plans (planner agent output)
-.claude/           — Claude Code agents, settings
+.claude/           — Claude Code agents ✅, settings ✅
+CHANGELOG.md       — История всего сделанного ✅
 ```
 
 ## Key Commands
@@ -91,35 +92,60 @@ make deploy        # Deploy via Coolify webhook
 See full pipeline spec: **docs/AI_PIPELINE.md**
 
 Key facts:
-- Voice pipeline latency budget: **< 3 seconds end-to-end**
-- STT primary: Deepgram Nova-3 `language=multi` (spike confirmed 2026-03-10)
+- Voice pipeline latency budget: **< 3.5 seconds end-to-end**
+- STT primary: Deepgram Nova-3 `language=multi` (**spike confirmed 2026-03-10, 6/6**)
 - STT fallback: Groq Whisper (auto-switch on Deepgram failure)
 - LLM switching: change `LLM_MODEL` env var — LiteLLM handles the rest
-- Reconstruction + PhraseVariants run **in parallel** after STT
+- Reconstruction + PhraseVariants run **in parallel** after STT (asyncio.gather)
 - Memory writes are **async, non-blocking**
 - Embeddings: Google API (Phase 1) to save RAM on 4GB VPS
 
 ## Environment Variables (key ones)
 
 ```
-STT_PROVIDER=deepgram          # deepgram | groq
-DEEPGRAM_API_KEY=              # Nova-3, language=multi
-GROQ_API_KEY=                  # Whisper fallback + LLM
+# STT
+STT_PROVIDER=deepgram
+DEEPGRAM_API_KEY=...          # Nova-3, language=multi
+
+# LLM
 LLM_MODEL=groq/llama-3.3-70b-versatile
-GEMINI_API_KEY=                # Lingua Bro project (separate quota)
-GOOGLE_TTS_API_KEY=
-DATABASE_URL=
-REDIS_URL=redis://localhost:6380/0
-SECRET_KEY=
+GROQ_API_KEY=...              # Whisper fallback + LLM
+
+# Google
+GEMINI_API_KEY=...            # Lingua Bro GCP project (lingua-bro)
+GOOGLE_TTS_API_KEY=...
+
+# Database
+DATABASE_URL=postgresql://postgres:...@db.chqbcqabqrnaqsiaomly.supabase.co:5432/postgres
+SUPABASE_URL=https://chqbcqabqrnaqsiaomly.supabase.co
+SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+
+# Cache
+REDIS_URL=rediss://default:...@darling-dove-67484.upstash.io:6379
+UPSTASH_REDIS_REST_URL=https://darling-dove-67484.upstash.io
+UPSTASH_REDIS_REST_TOKEN=...
+
+# App
+SECRET_KEY=...
+ENVIRONMENT=production
+PORT=8001
 ```
 
-Full list: see .env.example and docs/API_KEYS.md
+Full list: see `.env.example` and `docs/API_KEYS.md`
 
 ## VPS Infrastructure (178.17.50.45)
 
 - RAM: 4GB | Disk: 60GB | OS: Ubuntu 24.04
 - Swap: 2GB (persisted in /etc/fstab)
 - Coolify panel: http://178.17.50.45:8000
+
+### Coolify Applications
+
+| App | Domain | Port | Build |
+|-----|--------|------|-------|
+| `lingua-companion-backend` | https://api.lingua.creatman.site | 8001 | Dockerfile `/backend/Dockerfile` |
+| `lingua-companion-frontend` | https://lingua.creatman.site | 3001 | nixpacks, base `/apps/web` |
 
 ### Port Allocation
 
@@ -129,8 +155,8 @@ Full list: see .env.example and docs/API_KEYS.md
 443   → Nginx (existing: creatman.site portfolio)
 3000  → creatman-portfolio (Next.js, existing)
 3001  → LinguaCompanion web app
-5433  → PostgreSQL (LinguaCompanion)
-6380  → Redis (LinguaCompanion)
+5433  → PostgreSQL (LinguaCompanion, local dev only)
+6380  → Redis (LinguaCompanion, local dev only — prod uses Upstash)
 6333  → Qdrant (Phase 2)
 8000  → Coolify panel
 8001  → FastAPI backend (LinguaCompanion)
@@ -138,6 +164,18 @@ Full list: see .env.example and docs/API_KEYS.md
 ```
 
 Full VPS setup: **docs/VPS_SETUP.md**
+
+## External Services Summary
+
+| Service | Project/DB | Purpose | Status |
+|---------|-----------|---------|--------|
+| Supabase | Lingua Companion (`chqbcqabqrnaqsiaomly`) | PostgreSQL + pgvector | ✅ Active |
+| Upstash Redis | `lingua-companion` (Frankfurt) | Cache + Celery broker | ✅ Active |
+| Deepgram | — | STT Primary | ✅ $199.77 balance |
+| Groq | — | LLM + STT Fallback | ✅ |
+| Google Cloud | `lingua-bro` project | Gemini + TTS + Embeddings | ✅ |
+| GitHub | `CreatmanCEO/lingua-companion` | Source control + deploy key | ✅ |
+| Coolify | VPS 178.17.50.45:8000 | Deployment platform | ✅ |
 
 ## Phase 1 Scope (MVP)
 
@@ -152,6 +190,27 @@ Full VPS setup: **docs/VPS_SETUP.md**
 9. Auth: NextAuth.js v5 (Google OAuth + email magic link)
 10. Analytics: passive aggregator (speed, vocab, grammar trends)
 
+## What's Done vs What's Next
+
+### ✅ Done
+- Full project structure and monorepo setup
+- CLAUDE.md, agents, CI rules
+- Backend: FastAPI entry, config, requirements, Dockerfile
+- STT agent (stt.py) — fully implemented with Deepgram primary + Groq fallback
+- 8 agent stubs created
+- docker-compose.yml
+- All external services configured (Supabase, Upstash, Deepgram, Coolify)
+- DNS A-records for both domains
+- Coolify apps registered with correct domains and env vars
+- Full documentation (ARCHITECTURE, AI_PIPELINE, VPS_SETUP, API_KEYS, CHANGELOG)
+
+### 🔜 Next (in order)
+1. **WebSocket endpoint** `/ws/session` — binary audio → STT → JSON stream
+2. **Orchestrator** — parallel asyncio.gather for Reconstruction + PhraseVariants
+3. **Next.js VoiceRecorder** — MediaRecorder → WebSocket → streaming UI
+
+See: **docs/CLAUDE_CODE_START_PROMPT.md** for exact Claude Code instructions.
+
 ## Out of Scope for Phase 1
 
 - Pronunciation analysis (Azure Speech SDK) → Phase 2
@@ -159,4 +218,4 @@ Full VPS setup: **docs/VPS_SETUP.md**
 - Payments/subscriptions → Phase 2
 - Shadowing trainer → Phase 2
 - Multi-user rooms → Phase 2
-- Self-hosted PostgreSQL (using Supabase in Phase 1) → Phase 2
+- Self-hosted PostgreSQL → Phase 2

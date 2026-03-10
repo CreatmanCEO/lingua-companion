@@ -1,76 +1,135 @@
-# LinguaCompanion — Стартовый промпт для Claude Code
+# Claude Code — Start Prompt
 
-Используй этот промпт при каждом новом старте Claude Code в репозитории.
+Copy-paste this at the start of every Claude Code session:
 
 ---
 
-## ПРОМПТ
-
 ```
-Ты работаешь над проектом LinguaCompanion AI.
+Read CLAUDE.md fully, then docs/AI_PIPELINE.md.
 
-Начни с чтения CLAUDE.md — там всё что тебе нужно знать о проекте.
-Затем прочитай docs/AI_PIPELINE.md — там спека всего AI пайплайна включая
-результаты spike-тестов и почему Deepgram является primary STT.
+Confirm back:
+1. Which STT provider is primary and why (one sentence)
+2. Which two agents run in parallel after STT and why
+3. Which LLM is used and how to switch it
 
-После того как прочитал — коротко подтверди:
-1. Кто primary STT и почему (одно предложение)
-2. Какие агенты работают параллельно и зачем
-3. Как переключить LLM провайдера без изменения кода
-
-Затем скажи что готов к задаче и жди инструкций.
-
-Не начинай писать код до получения задачи.
+Then wait for my first task. Do not write any code yet.
 ```
 
 ---
 
-## Первая задача после старта
+## Infrastructure Status (as of 2026-03-11)
 
-После того как Claude Code подтвердил понимание архитектуры, 
-можно давать первую реальную задачу. Рекомендованный порядок:
+All external services are configured and ready:
 
-### Шаг 1 — FastAPI WebSocket endpoint
+| Service | Status | Details |
+|---------|--------|---------|
+| Supabase PostgreSQL | ✅ | `chqbcqabqrnaqsiaomly.supabase.co` |
+| Upstash Redis | ✅ | `darling-dove-67484.upstash.io:6379` (Frankfurt, TLS) |
+| Deepgram | ✅ | $199.77 balance, Nova-3 ready |
+| Groq | ✅ | LLM + STT fallback |
+| Coolify backend | ✅ | `https://api.lingua.creatman.site` |
+| Coolify frontend | ✅ | `https://lingua.creatman.site` |
+| DNS | ✅ | Both A-records pointing to 178.17.50.45 |
+
+Env vars are loaded in Coolify for the backend app.
+**Missing before first deploy**: DEEPGRAM_API_KEY and GROQ_API_KEY (add via Coolify UI).
+
+---
+
+## Task 1 — FastAPI WebSocket Endpoint
+
+**File**: `backend/app/api/routes/session.py`
+
 ```
-Задача: реализовать WebSocket endpoint /ws/session в backend/app/api/routes/
+Implement WebSocket endpoint /ws/session.
 
-Используй planner агента для создания плана.
-Endpoint должен:
-- принимать binary audio chunks от клиента
-- передавать в STT Agent (backend/app/agents/stt.py — уже написан)
-- возвращать JSON stream: { type: "transcript" | "correction" | "variants" | "response" }
-- обрабатывать disconnect gracefully
+Flow:
+1. Client connects via WebSocket
+2. Client sends binary audio chunks (webm/opus)
+3. Accumulate chunks until silence or 30s
+4. Call STTAgent.transcribe(audio_bytes) → STTResult
+5. Stream back JSON messages:
+   {"type": "stt_result", "transcript": "...", "provider": "deepgram"}
+   {"type": "processing"}
+   {"type": "response", "reconstruction": "...", "variants": [...]}
+   {"type": "error", "message": "..."}
 
-После плана — жди подтверждения перед кодом.
-```
+Requirements:
+- Use FastAPI WebSocket (not socketio)
+- Handle disconnect gracefully
+- Log each message type
+- Write integration test: connect → send fixture audio → assert stt_result received
 
-### Шаг 2 — Reconstruction + Phrase Variants параллельно
-```
-Задача: в orchestrator.py реализовать параллельный запуск
-reconstruction и phrase_variants через asyncio.gather()
-после получения transcript от STT Agent.
-```
-
-### Шаг 3 — Next.js voice UI
-```
-Задача: создать компонент apps/web/src/components/chat/VoiceRecorder.tsx
-Использует MediaRecorder API, отправляет audio chunks через WebSocket.
-Показывает: кнопка записи → waveform → транскрипт → correction + 5 вариантов.
+Audio fixture for tests: tests/fixtures/mixed_ru_en.m4a (create a simple one with silence if missing)
 ```
 
 ---
 
-## Правила для сессий Claude Code
+## Task 2 — Orchestrator: Parallel Agents
 
-1. **Начало сессии**: всегда стартовый промпт выше
-2. **При смене задачи**: /clear (не /compact)
-3. **При 60-70% контекста**: /compact — Claude Code сам напишет саммари
-4. **Коммиты**: после каждой завершённой фичи, через code-reviewer агента
-5. **Тесты**: обязательно после каждого изменения (`make test`)
+**File**: `backend/app/agents/orchestrator.py`
 
-## Чего НЕ делать
+```
+Implement the Orchestrator agent.
 
-- Не давай Claude Code несколько несвязанных задач одновременно
-- Не проси переписывать рабочий код "чтобы было лучше"
-- Не игнорируй когда Claude Code говорит "нужен план"
-- Не пропускай тесты "сейчас некогда"
+After STT result arrives, run in PARALLEL:
+- ReconstructionAgent.process(transcript) 
+- PhraseVariantsAgent.process(transcript)
+
+Use asyncio.gather() — both must start simultaneously.
+
+Then run sequentially:
+- CompanionAgent.respond(reconstruction_result)
+
+Return an OrchestratorResult dataclass with all outputs.
+
+Requirements:
+- Timeout: 5 seconds total for parallel step
+- Log timing for each agent
+- Write unit test: mock all agents, verify parallel execution via timing (< 1.5s for both)
+```
+
+---
+
+## Task 3 — Next.js VoiceRecorder Component
+
+**File**: `apps/web/src/components/VoiceRecorder.tsx`
+
+```
+First, initialize the Next.js app:
+pnpm create next-app apps/web --typescript --tailwind --app --no-src-dir
+
+Then implement VoiceRecorder component:
+
+State machine:
+  idle → recording → processing → idle
+
+Behavior:
+- Press button → start MediaRecorder (webm/opus, 250ms timeslice)
+- Each ondataavailable chunk → send via WebSocket to ws://localhost:8001/ws/session
+- On message type "stt_result" → show transcript in UI
+- On message type "response" → show reconstruction + 5 variants
+- On message type "error" → show error state
+- Press button again → stop recording
+
+UI:
+- Big round button (mic icon when idle, stop icon when recording)
+- Waveform animation while recording (CSS only, no libraries)
+- Loading spinner during processing
+- shadcn/ui components
+
+Requirements:
+- Handle WebSocket reconnect (exponential backoff)
+- Show connection status indicator
+- Write Vitest test: mock WebSocket, simulate message flow
+```
+
+---
+
+## Notes for Claude Code
+
+- All agents in `backend/app/agents/` are currently stubs — implement them one by one
+- STT agent (`stt.py`) is fully implemented — use it as reference for style
+- Use `make test-api` after every backend change
+- Use `make test-web` after every frontend change
+- Commit after each working task: `git add -A && git commit -m "feat: [task name]"`
