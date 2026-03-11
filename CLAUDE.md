@@ -85,11 +85,41 @@ make deploy        # Deploy via Coolify webhook
 - At 60-70% context: /compact with summary of current state
 - At topic switch: /clear
 
-## Agents
+## Агенты — мультиагентная схема
 
-- `planner` — before any complex task, research + plan, never writes code
-- `tester` — after code changes, run and interpret tests
-- `code-reviewer` — before commits, review for correctness and style
+В проекте 4 специализированных агента. Используй их в связке:
+
+```
+Сложная задача
+    ↓
+[planner]      — изучает код, пишет план в ./plans/
+    ↓ план подтверждён
+[implementer]  — пишет код шаг за шагом по плану
+    ↓ код написан
+[tester]       — запускает полный тест-сьют
+    ↓ тесты зелёные
+[code-reviewer] — финальный ревью перед коммитом
+    ↓
+git commit
+```
+
+### Как вызвать агента
+
+```
+Use the planner agent to research and plan /ws/session WebSocket endpoint
+Use the implementer agent to execute the plan from ./plans/PLAN-ws-session-*.md
+Use the tester agent to run full test suite
+Use the code-reviewer agent to review staged changes
+```
+
+### Когда какой агент
+
+| Агент | Когда вызывать |
+|-------|---------------|
+| `planner` | Перед ЛЮБОЙ сложной задачей (> 2 файлов) |
+| `implementer` | Когда план подтверждён — пишет код |
+| `tester` | После каждого завершённого шага кода |
+| `code-reviewer` | Перед каждым `git commit` |
 
 ## AI Pipeline Notes
 
