@@ -253,3 +253,27 @@ See: **docs/CLAUDE_CODE_START_PROMPT.md** for exact Claude Code instructions.
 - Shadowing trainer → Phase 2
 - Multi-user rooms → Phase 2
 - Self-hosted PostgreSQL → Phase 2
+
+## Управление контекстом
+
+**Проверяй загрузку командой `/cost` каждые 30-40 минут.**
+
+| Загрузка | Действие |
+|----------|----------|
+| < 60% | Работаем нормально |
+| 60-70% | `/compact` — скажи что сохранить: "Preserve: текущий шаг плана, изменённые файлы, результаты тестов" |
+| > 80% | Срочно `/compact` или `/clear` при смене темы |
+
+**Checkpoint перед любой большой задачей** (в PowerShell, не в Claude Code):
+```bash
+git add -A && git commit -m "checkpoint: before [название задачи]"
+```
+
+**Откат если что-то сломалось:**
+```bash
+git reset --hard HEAD
+```
+
+**Параллельная сессия** (открыть второй терминал кнопкой [+]):
+- Терминал 1: основная реализация
+- Терминал 2: тесты параллельно (`claude` → `Use the tester agent`)
