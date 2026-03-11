@@ -46,3 +46,5 @@ htmlcov/
 
 # Plans (local only, not for commit)
 plans/*.tmp
+
+nul
