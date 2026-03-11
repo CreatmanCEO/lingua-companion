@@ -13,6 +13,9 @@ from app.agents.phrase_variants import get_variants
 
 router = APIRouter()
 
+# Максимальный размер аудио: 1MB (защита от DoS)
+MAX_AUDIO_SIZE = 1 * 1024 * 1024
+
 
 async def send_event(ws: WebSocket, event_type: str, data: dict) -> None:
     """Отправить JSON-событие клиенту (если соединение открыто)."""
@@ -43,9 +46,18 @@ async def websocket_session(websocket: WebSocket):
             audio_bytes = await websocket.receive_bytes()
             session_start = time.time()
 
+            # 1.1 Validate audio size (DoS protection)
+            if len(audio_bytes) > MAX_AUDIO_SIZE:
+                await send_event(websocket, "error", {
+                    "message": f"Audio too large: {len(audio_bytes)} bytes (max {MAX_AUDIO_SIZE})"
+                })
+                continue
+
             # 2. STT
             try:
-                stt_result = await transcribe(audio_bytes, "audio.webm")
+                # Filename определяет MIME-тип в STT; используем нейтральный
+                # STT агент сам определит формат по magic bytes или использует default
+                stt_result = await transcribe(audio_bytes, "audio.bin")
                 await send_event(websocket, "stt_result", stt_result)
             except Exception as e:
                 await send_event(websocket, "error", {"message": f"STT failed: {str(e)}"})
@@ -57,31 +69,34 @@ async def websocket_session(websocket: WebSocket):
                 continue
 
             # 3. Parallel: Reconstruction + PhraseVariants
+            # Используем именованные задачи для надёжной идентификации
+            tasks = {}
             try:
-                reconstruction_task = asyncio.create_task(reconstruct(transcript))
-                variants_task = asyncio.create_task(get_variants(transcript))
-
-                # Отправляем результаты по мере готовности
-                done, pending = await asyncio.wait(
-                    [reconstruction_task, variants_task],
-                    return_when=asyncio.FIRST_COMPLETED
+                tasks["reconstruction_result"] = asyncio.create_task(
+                    reconstruct(transcript), name="reconstruction"
+                )
+                tasks["variants_result"] = asyncio.create_task(
+                    get_variants(transcript), name="variants"
                 )
 
-                for task in done:
-                    if task is reconstruction_task:
-                        await send_event(websocket, "reconstruction_result", task.result())
-                    elif task is variants_task:
-                        await send_event(websocket, "variants_result", task.result())
+                # Mapping task -> event_type для идентификации
+                task_to_event = {task: event for event, task in tasks.items()}
+                all_tasks = set(tasks.values())
 
-                # Дождаться оставшиеся
-                for task in pending:
-                    result = await task
-                    if task is reconstruction_task:
-                        await send_event(websocket, "reconstruction_result", result)
-                    elif task is variants_task:
-                        await send_event(websocket, "variants_result", result)
+                # Отправляем результаты по мере готовности
+                while all_tasks:
+                    done, all_tasks = await asyncio.wait(
+                        all_tasks, return_when=asyncio.FIRST_COMPLETED
+                    )
+                    for task in done:
+                        event_type = task_to_event[task]
+                        await send_event(websocket, event_type, task.result())
 
             except Exception as e:
+                # Отменяем pending задачи при ошибке
+                for task in tasks.values():
+                    if not task.done():
+                        task.cancel()
                 await send_event(websocket, "error", {"message": f"Processing failed: {str(e)}"})
 
     except WebSocketDisconnect:
@@ -90,5 +105,5 @@ async def websocket_session(websocket: WebSocket):
         # Unexpected error - try to notify client
         try:
             await send_event(websocket, "error", {"message": f"Server error: {str(e)}"})
-        except:
+        except Exception:
             pass

@@ -4,7 +4,12 @@
       "Bash(git pull:*)",
       "Bash(tree:*)",
       "Bash(python -m pytest:*)",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "Bash(DATABASE_URL=\"postgresql://test:test@localhost/test\" SECRET_KEY=\"test-secret-key\" python -m pytest:*)",
+      "Bash(dir:*)",
+      "Bash(ls:*)",
+      "Bash(DATABASE_URL=\"postgresql://test:test@localhost:5432/test\" SECRET_KEY=\"test-secret-key-for-testing\" python -m pytest:*)",
+      "Bash(DATABASE_URL=\"postgresql://test:test@localhost:5432/test\" SECRET_KEY=\"test-secret-key\" python -m pytest:*)"
     ]
   }
 }
