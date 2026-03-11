@@ -9,9 +9,9 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     VERSION: str = "0.1.0"
 
-    # Database
-    DATABASE_URL: str
-    
+    # Database (optional for local dev without DB)
+    DATABASE_URL: str = "sqlite:///./dev.db"
+
     # Redis
     REDIS_URL: str = "redis://localhost:6380/0"
 
@@ -28,8 +28,8 @@ class Settings(BaseSettings):
     # TTS
     GOOGLE_TTS_API_KEY: Optional[str] = None
 
-    # Auth
-    SECRET_KEY: str
+    # Auth (default for local dev)
+    SECRET_KEY: str = "dev-secret-key-change-in-production"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
 
     # Rate limits
@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"  # Ignore extra env vars not defined in Settings
 
 
 settings = Settings()

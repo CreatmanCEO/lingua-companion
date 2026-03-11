@@ -1,0 +1,1314 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>LinguaCompanion — Prototype v2</title>
+<link rel="preconnect" href="https://fonts.bunny.net">
+<link href="https://fonts.bunny.net/css?family=geist:300,400,500,600,700|geist-mono:400,500" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════
+   DESIGN TOKENS
+═══════════════════════════════════════ */
+:root[data-theme="dark"] {
+  --bg-void:        #0C0C14;
+  --bg-surface:     #12121F;
+  --bg-card:        #1A1A2E;
+  --bg-elevated:    #212135;
+  --bg-border:      #2E2E4A;
+  --text-primary:   #EEEEF5;
+  --text-secondary: #8080A8;
+  --text-muted:     #46466A;
+  --accent:         #5E5CE6;
+  --accent-soft:    rgba(94,92,230,0.12);
+  --accent-hover:   #7B7AFF;
+  --user-bubble:    #1E1E38;
+  --comp-bubble:    #161624;
+  --recording:      #FF3B30;
+  --success:        #32D74B;
+  --warning:        #FF9F0A;
+  --c-simple:       #32D74B;
+  --c-professional: #0A84FF;
+  --c-colloquial:   #FF9F0A;
+  --c-slang:        #FF375F;
+  --c-idiom:        #BF5AF2;
+  --shadow:         none;
+  --voice-bar-bg:   #0F0F1C;
+  --input-bg:       #1A1A2E;
+  --card-border-radius: 16px;
+}
+:root[data-theme="light"] {
+  --bg-void:        #F0F0F8;
+  --bg-surface:     #FFFFFF;
+  --bg-card:        #F4F4FC;
+  --bg-elevated:    #E8E8F4;
+  --bg-border:      #D4D4E8;
+  --text-primary:   #1C1C2E;
+  --text-secondary: #606080;
+  --text-muted:     #A0A0C0;
+  --accent:         #4A48D4;
+  --accent-soft:    rgba(74,72,212,0.1);
+  --accent-hover:   #6361EE;
+  --user-bubble:    #E8E8F8;
+  --comp-bubble:    #FFFFFF;
+  --recording:      #E02020;
+  --success:        #1FA83A;
+  --warning:        #C47800;
+  --c-simple:       #1FA83A;
+  --c-professional: #0060CC;
+  --c-colloquial:   #C47800;
+  --c-slang:        #CC1040;
+  --c-idiom:        #8833CC;
+  --shadow:         0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
+  --voice-bar-bg:   #FFFFFF;
+  --input-bg:       #F4F4FC;
+}
+
+/* ═══════════════════════════════════════
+   RESET
+═══════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  height: 100%;
+  font-family: 'Geist', -apple-system, sans-serif;
+  background: #060608;
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  touch-action: manipulation;
+}
+
+/* ═══════════════════════════════════════
+   PHONE WRAPPER
+═══════════════════════════════════════ */
+.phone-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
+  background: #060608;
+}
+.phone-shell {
+  width: 390px;
+  height: 844px;
+  background: var(--bg-void);
+  border-radius: 48px;
+  border: 1.5px solid rgba(255,255,255,0.08);
+  box-shadow: 0 0 0 8px #111118, 0 40px 80px rgba(0,0,0,0.8);
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  transition: background 0.25s ease;
+}
+.dynamic-island {
+  position: absolute;
+  top: 12px; left: 50%;
+  transform: translateX(-50%);
+  width: 120px; height: 34px;
+  background: #000;
+  border-radius: 20px;
+  z-index: 100;
+  pointer-events: none;
+}
+
+/* ═══════════════════════════════════════
+   HEADER
+═══════════════════════════════════════ */
+.header {
+  padding: 52px 20px 0;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--bg-border);
+  flex-shrink: 0;
+  transition: background 0.25s, border-color 0.25s;
+  position: relative;
+  z-index: 10;
+}
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 12px;
+}
+.logo-mark {
+  width: 28px; height: 28px;
+  background: var(--accent);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700; color: white;
+  letter-spacing: -0.5px;
+}
+.app-name {
+  font-size: 16px; font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.3px;
+  margin-left: 10px;
+}
+.header-right { display: flex; gap: 8px; align-items: center; }
+.icon-btn {
+  width: 34px; height: 34px;
+  border-radius: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--bg-border);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 15px;
+  color: var(--text-secondary);
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.icon-btn:active { transform: scale(0.92); }
+
+/* ═══════════════════════════════════════
+   TABS
+═══════════════════════════════════════ */
+.tabs { display: flex; gap: 0; }
+.tab {
+  flex: 1; padding: 10px 0;
+  text-align: center; font-size: 13px; font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ═══════════════════════════════════════
+   COMPANION STATUS BAR
+═══════════════════════════════════════ */
+.companion-bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 20px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--bg-border);
+  flex-shrink: 0;
+  transition: background 0.25s, border-color 0.25s;
+}
+.avatar {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #5E5CE6 0%, #BF5AF2 100%);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 700; color: white;
+  position: relative; flex-shrink: 0;
+  overflow: hidden;
+  border: 2px solid var(--bg-border);
+}
+/* Fake avatar — realistic placeholder */
+.avatar::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='16' r='7' fill='rgba(255,255,255,0.7)'/%3E%3Cellipse cx='20' cy='38' rx='13' ry='10' fill='rgba(255,255,255,0.5)'/%3E%3C/svg%3E") center/cover;
+}
+.online-dot {
+  position: absolute; bottom: 1px; right: 1px;
+  width: 10px; height: 10px;
+  background: var(--success);
+  border-radius: 50%;
+  border: 2px solid var(--bg-surface);
+  z-index: 2;
+}
+.companion-info { flex: 1; }
+.companion-name { font-size: 14px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.2px; }
+.companion-status { font-size: 11px; color: var(--text-secondary); display: flex; align-items: center; gap: 4px; }
+.typing-dots { display: inline-flex; gap: 2px; align-items: center; }
+.typing-dots span {
+  width: 4px; height: 4px;
+  background: var(--accent); border-radius: 50%;
+  animation: typingBounce 1.2s infinite;
+}
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typingBounce {
+  0%,60%,100% { transform: translateY(0); opacity:0.4; }
+  30% { transform: translateY(-3px); opacity:1; }
+}
+.session-timer {
+  font-family: 'Geist Mono', monospace;
+  font-size: 12px; color: var(--text-muted);
+  background: var(--bg-card);
+  padding: 3px 8px; border-radius: 6px;
+  border: 1px solid var(--bg-border);
+}
+
+/* ═══════════════════════════════════════
+   CHAT AREA
+═══════════════════════════════════════ */
+.chat-area {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px 16px 8px;
+  display: flex; flex-direction: column; gap: 12px;
+  background: var(--bg-void);
+  transition: background 0.25s;
+  scroll-behavior: smooth;
+}
+.chat-area::-webkit-scrollbar { width: 3px; }
+.chat-area::-webkit-scrollbar-thumb { background: var(--bg-border); border-radius: 3px; }
+
+.date-divider {
+  display: flex; align-items: center; gap: 10px; margin: 4px 0;
+}
+.date-divider::before, .date-divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--bg-border);
+}
+.date-divider span { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+
+/* ── COMPANION BUBBLE ── */
+.msg-comp { display: flex; gap: 10px; align-items: flex-start; animation: fadeSlideUp 0.3s ease; }
+.avatar-sm {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: linear-gradient(135deg, #5E5CE6, #BF5AF2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: white;
+  flex-shrink: 0; margin-top: 2px;
+  position: relative; overflow: hidden;
+}
+.avatar-sm::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Ccircle cx='15' cy='11' r='5' fill='rgba(255,255,255,0.7)'/%3E%3Cellipse cx='15' cy='28' rx='10' ry='7' fill='rgba(255,255,255,0.5)'/%3E%3C/svg%3E") center/cover;
+}
+.comp-bubble-wrap { max-width: 268px; }
+.bubble-comp {
+  background: var(--comp-bubble);
+  border: 1px solid var(--bg-border);
+  border-radius: 4px 18px 18px 18px;
+  padding: 10px 14px;
+  box-shadow: var(--shadow);
+  transition: background 0.25s, border-color 0.25s;
+}
+.bubble-text { font-size: 14px; color: var(--text-primary); line-height: 1.55; }
+.bubble-actions { display: flex; gap: 6px; margin-top: 8px; align-items: center; flex-wrap: wrap; }
+.action-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 10px; border-radius: 20px;
+  font-size: 11px; font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--bg-border);
+  color: var(--text-secondary); background: var(--bg-elevated);
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.action-pill:active { transform: scale(0.94); }
+.action-pill.accent { border-color: var(--accent-soft); color: var(--accent); background: var(--accent-soft); }
+.action-pill.playing { color: var(--success); border-color: rgba(50,215,75,0.2); background: rgba(50,215,75,0.08); }
+.msg-timestamp { font-size: 10px; color: var(--text-muted); margin-top: 4px; padding-left: 40px; }
+
+/* ── USER BUBBLE ── */
+.msg-user { display: flex; justify-content: flex-end; animation: fadeSlideUp 0.3s ease; }
+.bubble-user {
+  background: var(--user-bubble);
+  border: 1px solid var(--bg-border);
+  border-radius: 18px 4px 18px 18px;
+  padding: 10px 14px; max-width: 260px;
+  transition: background 0.25s, border-color 0.25s;
+}
+.msg-timestamp-r { font-size: 10px; color: var(--text-muted); margin-top: 4px; text-align: right; }
+
+/* ── VOICE BUBBLE ── */
+.voice-bubble {
+  background: var(--user-bubble);
+  border: 1px solid var(--bg-border);
+  border-radius: 18px 4px 18px 18px;
+  padding: 10px 14px; max-width: 240px;
+  transition: background 0.25s, border-color 0.25s;
+}
+.voice-wave { display: flex; align-items: center; gap: 2.5px; height: 26px; }
+.voice-wave .bar { width: 3px; border-radius: 2px; background: var(--accent); }
+.voice-wave .bar:nth-child(1)  { height:6px; }  .voice-wave .bar:nth-child(2)  { height:12px; }
+.voice-wave .bar:nth-child(3)  { height:18px; } .voice-wave .bar:nth-child(4)  { height:22px; }
+.voice-wave .bar:nth-child(5)  { height:14px; } .voice-wave .bar:nth-child(6)  { height:20px; }
+.voice-wave .bar:nth-child(7)  { height:16px; } .voice-wave .bar:nth-child(8)  { height:10px; }
+.voice-wave .bar:nth-child(9)  { height:18px; } .voice-wave .bar:nth-child(10) { height:8px; }
+.voice-wave .bar:nth-child(11) { height:14px; } .voice-wave .bar:nth-child(12) { height:20px; }
+.voice-wave .bar:nth-child(13) { height:12px; } .voice-wave .bar:nth-child(14) { height:7px; }
+.voice-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 5px; }
+.voice-duration { font-family: 'Geist Mono', monospace; font-size: 11px; color: var(--text-muted); }
+
+/* transcript */
+.transcript-block {
+  margin-top: 8px; padding: 8px 10px;
+  background: var(--bg-void); border-radius: 8px;
+  border: 1px solid var(--bg-border);
+  font-size: 12px; color: var(--text-secondary); font-style: italic;
+  display: none;
+  transition: background 0.25s, border-color 0.25s;
+}
+.transcript-block.visible { display: block; animation: fadeIn 0.2s ease; }
+
+/* ── RICH LINK CARD ── */
+.rich-card {
+  border: 1px solid var(--bg-border); border-radius: 12px;
+  overflow: hidden; margin-top: 8px;
+  background: var(--bg-card); cursor: pointer;
+  transition: all 0.2s; box-shadow: var(--shadow);
+}
+.rich-card:hover { border-color: var(--accent-soft); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(94,92,230,0.12); }
+.rich-card:active { transform: scale(0.98); }
+.rich-img {
+  width: 100%; height: 88px;
+  background: linear-gradient(135deg, #1a1a3a 0%, #2a1a4a 50%, #1a2a4a 100%);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 32px; position: relative; overflow: hidden;
+}
+.rich-img::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.35));
+}
+.rich-body { padding: 10px 12px 12px; }
+.rich-source { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text-muted); margin-bottom: 4px; }
+.favicon { width: 14px; height: 14px; background: var(--accent-soft); border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 8px; color: var(--accent); font-weight: 700; }
+.rich-title { font-size: 13px; font-weight: 600; color: var(--text-primary); line-height: 1.4; margin-bottom: 4px; }
+.rich-desc { font-size: 11px; color: var(--text-secondary); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.rich-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+.read-link { font-size: 11px; color: var(--accent); font-weight: 500; }
+.read-time { font-size: 10px; color: var(--text-muted); }
+
+/* ── RECONSTRUCTION ── */
+.reconstruction {
+  margin-top: 10px;
+  background: var(--bg-card); border: 1px solid var(--bg-border); border-radius: 12px;
+  padding: 12px; display: none; box-shadow: var(--shadow);
+  transition: background 0.25s, border-color 0.25s;
+}
+.reconstruction.visible { display: block; animation: fadeSlideUp 0.3s ease; }
+.recon-header {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10px; font-weight: 700; color: var(--warning);
+  text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 10px;
+}
+.diff-block { font-family: 'Geist Mono', monospace; font-size: 12px; border-radius: 8px; overflow: hidden; margin-bottom: 8px; }
+.diff-row { display: flex; gap: 8px; padding: 6px 10px; align-items: flex-start; }
+.diff-row.minus { background: rgba(255,55,95,0.08); border-left: 2px solid var(--c-slang); }
+.diff-row.plus  { background: rgba(50,215,75,0.08); border-left: 2px solid var(--c-simple); }
+.diff-sign { font-size: 12px; font-weight: 700; flex-shrink: 0; width: 10px; }
+.diff-row.minus .diff-sign { color: var(--c-slang); }
+.diff-row.plus .diff-sign { color: var(--c-simple); }
+.diff-text { color: var(--text-primary); line-height: 1.45; }
+.grammar-note {
+  font-size: 11px; color: var(--text-secondary); line-height: 1.55;
+  padding-top: 8px; border-top: 1px solid var(--bg-border); margin-top: 4px;
+}
+
+/* ── VARIANT CARDS — FIXED HORIZONTAL SCROLL ── */
+.variants-section { margin-top: 10px; display: none; }
+.variants-section.visible { display: block; animation: fadeSlideUp 0.35s ease; }
+.variants-label {
+  font-size: 10px; font-weight: 700; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.6px;
+  margin-bottom: 8px; padding: 0 2px;
+}
+/* KEY FIX: negative margin to allow scroll edge-to-edge */
+.variants-scroll-outer {
+  margin: 0 -16px;
+  overflow: hidden;
+}
+.variants-scroll {
+  display: flex; gap: 8px;
+  overflow-x: auto; overflow-y: visible;
+  padding: 4px 16px 10px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  cursor: grab;
+}
+.variants-scroll:active { cursor: grabbing; }
+.variants-scroll::-webkit-scrollbar { display: none; }
+
+.variant-card {
+  flex-shrink: 0;
+  width: 160px;
+  background: var(--bg-card);
+  border: 1px solid var(--bg-border);
+  border-radius: 12px;
+  padding: 12px;
+  scroll-snap-align: start;
+  transition: transform 0.15s, box-shadow 0.15s, background 0.25s, border-color 0.25s;
+  box-shadow: var(--shadow);
+}
+.variant-card:active { transform: scale(0.97); }
+
+.variant-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+  margin-bottom: 7px; padding: 3px 8px; border-radius: 20px;
+}
+.variant-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+.variant-text { font-size: 12px; color: var(--text-primary); line-height: 1.5; margin-bottom: 7px; min-height: 52px; }
+
+/* NEW: variant subtitle — context hint */
+.variant-sub { font-size: 10px; color: var(--text-muted); line-height: 1.4; margin-bottom: 10px; }
+
+.variant-actions { display: flex; gap: 5px; }
+.v-btn {
+  flex: 1; padding: 5px 0; border-radius: 7px;
+  font-size: 11px; font-weight: 500; text-align: center;
+  cursor: pointer;
+  border: 1px solid var(--bg-border); color: var(--text-secondary); background: var(--bg-elevated);
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent; user-select: none;
+}
+.v-btn:active { transform: scale(0.93); }
+.v-btn.save-btn { color: var(--accent); border-color: var(--accent-soft); background: var(--accent-soft); }
+.v-btn.save-btn.saved { color: var(--success); border-color: rgba(50,215,75,0.2); background: rgba(50,215,75,0.08); }
+
+/* Variant card color themes */
+.v-simple   .variant-badge { background: rgba(50,215,75,0.1); color: var(--c-simple); }
+.v-simple   .variant-badge::before { background: var(--c-simple); }
+.v-simple   { border-color: rgba(50,215,75,0.2); }
+
+.v-pro      .variant-badge { background: rgba(10,132,255,0.1); color: var(--c-professional); }
+.v-pro      .variant-badge::before { background: var(--c-professional); }
+.v-pro      { border-color: rgba(10,132,255,0.2); }
+
+.v-casual   .variant-badge { background: rgba(255,159,10,0.1); color: var(--c-colloquial); }
+.v-casual   .variant-badge::before { background: var(--c-colloquial); }
+.v-casual   { border-color: rgba(255,159,10,0.2); }
+
+.v-slang    .variant-badge { background: rgba(255,55,95,0.1); color: var(--c-slang); }
+.v-slang    .variant-badge::before { background: var(--c-slang); }
+.v-slang    { border-color: rgba(255,55,95,0.2); }
+
+.v-idiom    .variant-badge { background: rgba(191,90,242,0.1); color: var(--c-idiom); }
+.v-idiom    .variant-badge::before { background: var(--c-idiom); }
+.v-idiom    { border-color: rgba(191,90,242,0.2); }
+
+/* ── SCENARIO SCREEN ── */
+.scenario-screen {
+  display: none; flex-direction: column; gap: 0;
+  flex: 1; overflow-y: auto; padding: 16px;
+  background: var(--bg-void);
+  transition: background 0.25s;
+}
+.scenario-screen.active { display: flex; }
+.scenario-title { font-size: 13px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+.scenario-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; border-radius: 12px;
+  background: var(--bg-card); border: 1px solid var(--bg-border);
+  margin-bottom: 8px; cursor: pointer;
+  transition: all 0.15s; box-shadow: var(--shadow);
+}
+.scenario-card:active { transform: scale(0.98); border-color: var(--accent-soft); }
+.scenario-icon { font-size: 22px; width: 40px; text-align: center; flex-shrink: 0; }
+.scenario-info { flex: 1; }
+.scenario-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.scenario-desc { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+.scenario-level {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+  padding: 2px 8px; border-radius: 20px;
+}
+.level-b1 { background: rgba(10,132,255,0.1); color: var(--c-professional); }
+.level-b2 { background: rgba(255,159,10,0.1); color: var(--c-colloquial); }
+
+/* ═══════════════════════════════════════
+   VOICE BAR
+═══════════════════════════════════════ */
+.voice-bar {
+  flex-shrink: 0;
+  background: var(--voice-bar-bg);
+  border-top: 1px solid var(--bg-border);
+  padding: 10px 16px 28px;
+  transition: background 0.25s, border-color 0.25s;
+  position: relative; z-index: 10;
+}
+.input-toggle-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.mode-pills {
+  display: flex; gap: 3px;
+  background: var(--bg-card); padding: 3px; border-radius: 10px;
+  border: 1px solid var(--bg-border);
+}
+.mode-pill {
+  padding: 4px 12px; border-radius: 7px;
+  font-size: 12px; font-weight: 500; color: var(--text-muted);
+  cursor: pointer; transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent; user-select: none;
+}
+.mode-pill.active { background: var(--accent); color: white; }
+.companion-label { font-size: 11px; color: var(--text-muted); }
+
+/* TEXT STATE */
+.state-text { display: flex; gap: 8px; align-items: center; }
+.text-input {
+  flex: 1;
+  background: var(--input-bg); border: 1px solid var(--bg-border);
+  border-radius: 22px; padding: 10px 16px;
+  font-size: 14px; font-family: 'Geist', sans-serif;
+  color: var(--text-primary); outline: none;
+  transition: border-color 0.2s, background 0.25s;
+}
+.text-input:focus { border-color: var(--accent); }
+.text-input::placeholder { color: var(--text-muted); }
+.send-btn {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all 0.15s; flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent; user-select: none;
+}
+.send-btn:active { transform: scale(0.9); }
+.send-btn svg { width: 16px; height: 16px; fill: white; }
+
+/* VOICE IDLE */
+.state-voice { display: none; flex-direction: column; align-items: center; gap: 4px; }
+.mic-hint { font-size: 11px; color: var(--text-muted); }
+.mic-button {
+  width: 66px; height: 66px; border-radius: 50%;
+  background: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; position: relative;
+  transition: transform 0.1s, box-shadow 0.2s;
+  -webkit-tap-highlight-color: transparent; user-select: none;
+  box-shadow: 0 0 0 0 rgba(94,92,230,0.4);
+}
+.mic-button:hover { box-shadow: 0 0 0 10px rgba(94,92,230,0.12); }
+.mic-button.pressing {
+  transform: scale(0.94);
+  box-shadow: 0 0 0 14px rgba(94,92,230,0.08);
+}
+.mic-button svg { width: 28px; height: 28px; fill: white; pointer-events: none; }
+
+/* RECORDING */
+.state-recording { display: none; align-items: center; gap: 8px; }
+.rec-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--recording); animation: blink 1s infinite; flex-shrink: 0; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+.rec-timer { font-family: 'Geist Mono', monospace; font-size: 13px; font-weight: 500; color: var(--recording); min-width: 38px; }
+.live-wave { flex: 1; display: flex; align-items: center; gap: 2px; height: 32px; }
+.live-wave .bar { width: 3px; background: var(--accent); border-radius: 2px; animation: liveBounce 0.8s ease-in-out infinite; }
+.live-wave .bar:nth-child(1)  { height:8px;  animation-delay:0s; }
+.live-wave .bar:nth-child(2)  { height:16px; animation-delay:0.1s; }
+.live-wave .bar:nth-child(3)  { height:24px; animation-delay:0.2s; }
+.live-wave .bar:nth-child(4)  { height:20px; animation-delay:0.15s; }
+.live-wave .bar:nth-child(5)  { height:28px; animation-delay:0.05s; }
+.live-wave .bar:nth-child(6)  { height:18px; animation-delay:0.25s; }
+.live-wave .bar:nth-child(7)  { height:22px; animation-delay:0.1s; }
+.live-wave .bar:nth-child(8)  { height:12px; animation-delay:0.3s; }
+.live-wave .bar:nth-child(9)  { height:20px; animation-delay:0.15s; }
+.live-wave .bar:nth-child(10) { height:14px; animation-delay:0.05s; }
+.live-wave .bar:nth-child(11) { height:10px; animation-delay:0.22s; }
+.live-wave .bar:nth-child(12) { height:18px; animation-delay:0.35s; }
+@keyframes liveBounce { 0%,100%{transform:scaleY(0.35)} 50%{transform:scaleY(1)} }
+.cancel-hint { font-size: 10px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+.stop-btn {
+  width: 50px; height: 50px; border-radius: 50%;
+  background: var(--recording); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 0 0 4px rgba(255,59,48,0.15);
+  animation: recPulse 1.5s ease-in-out infinite;
+  -webkit-tap-highlight-color: transparent; user-select: none;
+}
+@keyframes recPulse { 0%,100%{box-shadow:0 0 0 4px rgba(255,59,48,0.15)} 50%{box-shadow:0 0 0 10px rgba(255,59,48,0.04)} }
+.stop-btn svg { width: 20px; height: 20px; fill: white; pointer-events: none; }
+
+/* PROCESSING */
+.state-processing { display: none; flex-direction: column; gap: 8px; }
+.proc-label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
+.spinner { width: 16px; height: 16px; border: 2px solid var(--bg-border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to{transform:rotate(360deg)} }
+.proc-time { margin-left: auto; font-family: 'Geist Mono', monospace; font-size: 11px; color: var(--text-muted); }
+.progress-bar { height: 2px; background: var(--bg-border); border-radius: 2px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--accent); border-radius: 2px; animation: progFill 2.5s ease-in-out forwards; }
+@keyframes progFill { 0%{width:0%} 40%{width:55%} 70%{width:75%} 90%{width:88%} 100%{width:92%} }
+
+/* AI LOADING */
+.ai-thinking {
+  display: none; flex-direction: column; gap: 8px;
+  padding: 8px 0;
+}
+.ai-thinking.visible { display: flex; }
+.ai-thinking-label { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-secondary); }
+.ai-dots { display: flex; gap: 3px; }
+.ai-dots span { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); animation: aiPulse 1.4s ease infinite; }
+.ai-dots span:nth-child(2) { animation-delay: 0.2s; }
+.ai-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes aiPulse { 0%,80%,100%{transform:scale(0.6);opacity:0.4} 40%{transform:scale(1);opacity:1} }
+
+/* ═══════════════════════════════════════
+   TOAST
+═══════════════════════════════════════ */
+.toast {
+  position: absolute; bottom: 110px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: var(--bg-elevated); border: 1px solid var(--bg-border);
+  padding: 8px 16px; border-radius: 20px;
+  font-size: 12px; font-weight: 500; color: var(--text-primary);
+  white-space: nowrap; opacity: 0;
+  transition: all 0.25s; pointer-events: none;
+  z-index: 50; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ═══════════════════════════════════════
+   ANIMATIONS
+═══════════════════════════════════════ */
+@keyframes fadeSlideUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+/* ═══════════════════════════════════════
+   DESKTOP GUIDE
+═══════════════════════════════════════ */
+.guide {
+  position: fixed; top: 50%; left: calc(50% + 220px);
+  transform: translateY(-50%);
+  max-width: 240px; color: rgba(255,255,255,0.45);
+  font-size: 12px; line-height: 1.7;
+}
+.guide h3 { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.65); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+.guide li { margin-bottom: 6px; list-style: none; padding-left: 16px; position: relative; }
+.guide li::before { content: '→'; position: absolute; left: 0; color: rgba(94,92,230,0.7); }
+
+@media (max-width: 900px) {
+  .phone-wrapper { padding: 0; }
+  .phone-shell { width: 100vw; height: 100vh; border-radius: 0; border: none; box-shadow: none; }
+  .dynamic-island { display: none; }
+  .guide { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="phone-wrapper">
+
+  <div class="guide">
+    <h3>Prototype v2 — Interactions</h3>
+    <ul>
+      <li>Tap ☀️/🌙 — toggle theme</li>
+      <li>Tap tabs — Free Chat / Scenario</li>
+      <li>Tap <strong>[📝 Transcribe]</strong> on voice msg</li>
+      <li>Tap <strong>[Analyse]</strong> — reconstruction + variants</li>
+      <li>Scroll variant cards horizontally →</li>
+      <li>Tap <strong>[▶ Listen]</strong> — real TTS plays</li>
+      <li>Tap <strong>[+ Save]</strong> — saves phrase</li>
+      <li>Tap <strong>[🎤 Voice]</strong> tab bottom</li>
+      <li>Hold mic → recording → release → processing</li>
+      <li>Type message → companion replies via Claude API</li>
+    </ul>
+  </div>
+
+  <div class="phone-shell" id="shell">
+    <div class="dynamic-island"></div>
+
+    <!-- HEADER -->
+    <div class="header">
+      <div class="header-top">
+        <div style="display:flex;align-items:center">
+          <div class="logo-mark">L</div>
+          <span class="app-name">LinguaCompanion</span>
+        </div>
+        <div class="header-right">
+          <div class="icon-btn" id="themeBtn">☀️</div>
+          <div class="icon-btn" style="font-size:13px">···</div>
+        </div>
+      </div>
+      <div class="tabs">
+        <div class="tab active" id="tabFree" onclick="switchTab('free')">💬 Free Chat</div>
+        <div class="tab" id="tabScenario" onclick="switchTab('scenario')">🎭 Scenario</div>
+      </div>
+    </div>
+
+    <!-- COMPANION BAR -->
+    <div class="companion-bar" id="compBar">
+      <div class="avatar">
+        <div class="online-dot"></div>
+      </div>
+      <div class="companion-info">
+        <div class="companion-name">Alex</div>
+        <div class="companion-status" id="compStatus">
+          <span id="typingDots" class="typing-dots" style="display:none"><span></span><span></span><span></span></span>
+          <span id="statusTxt">Professional · Online</span>
+        </div>
+      </div>
+      <div class="session-timer" id="timer">04:12</div>
+    </div>
+
+    <!-- FREE CHAT (main) -->
+    <div class="chat-area" id="chatArea">
+
+      <div class="date-divider"><span>Today</span></div>
+
+      <!-- Companion opens with Rich Card -->
+      <div class="msg-comp">
+        <div class="avatar-sm"></div>
+        <div class="comp-bubble-wrap">
+          <div class="bubble-comp">
+            <div class="bubble-text">Hey! Saw this and thought of you 👇</div>
+            <div class="rich-card" onclick="showToast('Opening in browser…')">
+              <div class="rich-img">⚙️</div>
+              <div class="rich-body">
+                <div class="rich-source"><div class="favicon">G</div><span>github.blog</span></div>
+                <div class="rich-title">Rust overtakes Go in backend benchmarks — Netflix case study</div>
+                <div class="rich-desc">Netflix's infra team migrated 40 services to Rust with zero downtime and 3× throughput gains.</div>
+                <div class="rich-footer">
+                  <span class="read-link">Read article ↗</span>
+                  <span class="read-time">4 min read</span>
+                </div>
+              </div>
+            </div>
+            <div class="bubble-actions" style="margin-top:10px">
+              <div class="action-pill" onclick="tts(this, 'Hey, saw this and thought of you. What do you think? Are you using Rust at work?')">▶ Listen</div>
+            </div>
+          </div>
+          <div class="msg-timestamp">10:41 AM</div>
+        </div>
+      </div>
+
+      <!-- User voice message -->
+      <div class="msg-user">
+        <div style="display:flex;flex-direction:column;align-items:flex-end">
+          <div class="voice-bubble">
+            <div class="voice-wave">
+              <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+              <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+              <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+              <div class="bar"></div><div class="bar"></div>
+            </div>
+            <div class="voice-meta"><span class="voice-duration">0:07</span></div>
+            <div class="transcript-block" id="tr1">
+              "Да, мы начали migration to Rust в нашем API gateway, но у нас проблемы с async runtime..."
+            </div>
+            <div class="bubble-actions" style="margin-top:8px">
+              <div class="action-pill" onclick="toggleTranscript('tr1',this)">📝 Transcribe</div>
+              <div class="action-pill accent" onclick="showAnalysis()">Analyse</div>
+            </div>
+          </div>
+          <div class="msg-timestamp-r">10:42 AM</div>
+        </div>
+      </div>
+
+      <!-- Reconstruction (hidden) -->
+      <div class="reconstruction" id="recon">
+        <div class="recon-header">💡 Reconstruction</div>
+        <div class="diff-block">
+          <div class="diff-row minus">
+            <span class="diff-sign">−</span>
+            <span class="diff-text">"мы начали migration to Rust в нашем API gateway"</span>
+          </div>
+          <div class="diff-row plus">
+            <span class="diff-sign">+</span>
+            <span class="diff-text">"we've started migrating our API gateway to Rust"</span>
+          </div>
+        </div>
+        <div class="grammar-note">
+          💬 <strong>«начали» + ongoing process</strong> → present perfect «have started». Word order: «migrating [what] to [where]», not «migration to Rust».
+        </div>
+      </div>
+
+      <!-- Variant Cards (hidden) — FIXED SCROLL -->
+      <div class="variants-section" id="variants">
+        <div class="variants-label">5 Ways to say it</div>
+        <div class="variants-scroll-outer">
+          <div class="variants-scroll" id="varScroll">
+
+            <div class="variant-card v-simple">
+              <div class="variant-badge">Simple</div>
+              <div class="variant-text">"We're moving our API to Rust — it's been tricky with async."</div>
+              <div class="variant-sub">Everyday conversation, all levels understand</div>
+              <div class="variant-actions">
+                <div class="v-btn" onclick="tts(this,'We are moving our API to Rust — it has been tricky with async.')">▶</div>
+                <div class="v-btn save-btn" onclick="saveVariant(this)">+ Save</div>
+              </div>
+            </div>
+
+            <div class="variant-card v-pro">
+              <div class="variant-badge">Professional</div>
+              <div class="variant-text">"We've initiated a Rust migration for our API gateway, though async runtime integration remains a challenge."</div>
+              <div class="variant-sub">Technical presentations, job interviews</div>
+              <div class="variant-actions">
+                <div class="v-btn" onclick="tts(this,'We have initiated a Rust migration for our API gateway, though async runtime integration remains a challenge.')">▶</div>
+                <div class="v-btn save-btn" onclick="saveVariant(this)">+ Save</div>
+              </div>
+            </div>
+
+            <div class="variant-card v-casual">
+              <div class="variant-badge">Casual</div>
+              <div class="variant-text">"Yeah, we've been switching our API gateway to Rust — the async stuff is killing us though."</div>
+              <div class="variant-sub">Slack messages, team chats, stand-ups</div>
+              <div class="variant-actions">
+                <div class="v-btn" onclick="tts(this,'Yeah, we have been switching our API gateway to Rust — the async stuff is killing us though.')">▶</div>
+                <div class="v-btn save-btn" onclick="saveVariant(this)">+ Save</div>
+              </div>
+            </div>
+
+            <div class="variant-card v-slang">
+              <div class="variant-badge">Slang</div>
+              <div class="variant-text">"Dude, we're rewriting the API gateway in Rust and the async runtime is a total nightmare rn."</div>
+              <div class="variant-sub">Developer Twitter, after-hours chats</div>
+              <div class="variant-actions">
+                <div class="v-btn" onclick="tts(this,'Dude, we are rewriting the API gateway in Rust and the async runtime is a total nightmare right now.')">▶</div>
+                <div class="v-btn save-btn" onclick="saveVariant(this)">+ Save</div>
+              </div>
+            </div>
+
+            <div class="variant-card v-idiom">
+              <div class="variant-badge">Idiom</div>
+              <div class="variant-text">"We've taken the plunge with Rust for the API gateway — still ironing out the async kinks."</div>
+              <div class="variant-sub">Sounds native — use when confident</div>
+              <div class="variant-actions">
+                <div class="v-btn" onclick="tts(this,'We have taken the plunge with Rust for the API gateway — still ironing out the async kinks.')">▶</div>
+                <div class="v-btn save-btn" onclick="saveVariant(this)">+ Save</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- AI thinking indicator -->
+      <div class="ai-thinking" id="aiThinking">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="avatar-sm" style="width:24px;height:24px;font-size:10px"></div>
+          <div class="ai-thinking-label">
+            <span style="color:var(--text-muted)">Alex is thinking</span>
+            <div class="ai-dots"><span></span><span></span><span></span></div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /chat-area -->
+
+    <!-- SCENARIO TAB -->
+    <div class="scenario-screen" id="scenarioScreen">
+      <div class="scenario-title">Choose a scenario</div>
+
+      <div class="scenario-card" onclick="showToast('Starting Daily Stand-up…')">
+        <div class="scenario-icon">☀️</div>
+        <div class="scenario-info">
+          <div class="scenario-name">Daily Stand-up</div>
+          <div class="scenario-desc">What did you do, what's blocked?</div>
+        </div>
+        <div class="scenario-level level-b1">B1</div>
+      </div>
+
+      <div class="scenario-card" onclick="showToast('Starting Code Review…')">
+        <div class="scenario-icon">🔍</div>
+        <div class="scenario-info">
+          <div class="scenario-name">Code Review</div>
+          <div class="scenario-desc">Discuss PRs with your tech lead</div>
+        </div>
+        <div class="scenario-level level-b1">B1</div>
+      </div>
+
+      <div class="scenario-card" onclick="showToast('Starting Tech Demo…')">
+        <div class="scenario-icon">📊</div>
+        <div class="scenario-info">
+          <div class="scenario-name">Tech Demo</div>
+          <div class="scenario-desc">Present a feature to stakeholders</div>
+        </div>
+        <div class="scenario-level level-b2">B2</div>
+      </div>
+
+      <div class="scenario-card" onclick="showToast('Starting Job Interview…')">
+        <div class="scenario-icon">💼</div>
+        <div class="scenario-info">
+          <div class="scenario-name">Job Interview</div>
+          <div class="scenario-desc">System design + behavioural</div>
+        </div>
+        <div class="scenario-level level-b2">B2</div>
+      </div>
+
+      <div class="scenario-card" onclick="showToast('Starting Sprint Planning…')">
+        <div class="scenario-icon">📋</div>
+        <div class="scenario-info">
+          <div class="scenario-name">Sprint Planning</div>
+          <div class="scenario-desc">Estimate, discuss scope & blockers</div>
+        </div>
+        <div class="scenario-level level-b1">B1</div>
+      </div>
+
+      <div class="scenario-card" onclick="showToast('Starting Slack Message…')">
+        <div class="scenario-icon">💬</div>
+        <div class="scenario-info">
+          <div class="scenario-name">Write a Slack Message</div>
+          <div class="scenario-desc">Sound natural, not like Google Translate</div>
+        </div>
+        <div class="scenario-level level-b1">B1</div>
+      </div>
+    </div>
+
+    <!-- VOICE BAR -->
+    <div class="voice-bar">
+      <div class="input-toggle-row">
+        <div class="mode-pills">
+          <div class="mode-pill active" id="btnText" onclick="setMode('text')">⌨️ Text</div>
+          <div class="mode-pill" id="btnVoice" onclick="setMode('voice')">🎤 Voice</div>
+        </div>
+        <div class="companion-label">Alex · Professional</div>
+      </div>
+
+      <!-- TEXT -->
+      <div class="state-text" id="stText">
+        <input class="text-input" id="msgInput" placeholder="Type a message…"
+               onkeydown="if(event.key==='Enter')sendMsg()">
+        <div class="send-btn" onclick="sendMsg()">
+          <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        </div>
+      </div>
+
+      <!-- VOICE IDLE -->
+      <div class="state-voice" id="stVoice">
+        <div class="mic-hint">Hold to speak · release to send</div>
+        <div class="mic-button" id="micBtn">
+          <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
+        </div>
+      </div>
+
+      <!-- RECORDING -->
+      <div class="state-recording" id="stRec">
+        <div class="rec-dot"></div>
+        <div class="rec-timer" id="recTimer">00:00</div>
+        <div class="live-wave">
+          <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+          <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+          <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+        </div>
+        <div class="cancel-hint">← cancel</div>
+        <div class="stop-btn" id="stopBtn">
+          <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+        </div>
+      </div>
+
+      <!-- PROCESSING -->
+      <div class="state-processing" id="stProc">
+        <div class="proc-label">
+          <div class="spinner"></div>
+          <span>Processing speech…</span>
+          <div class="proc-time">~2.1s</div>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="progFill"></div></div>
+      </div>
+    </div>
+
+    <!-- TOAST -->
+    <div class="toast" id="toast"></div>
+
+  </div><!-- /phone-shell -->
+</div>
+
+<script>
+/* ══════════════════════════════════
+   THEME
+══════════════════════════════════ */
+let dark = true;
+document.getElementById('themeBtn').addEventListener('click', () => {
+  dark = !dark;
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  document.getElementById('themeBtn').textContent = dark ? '☀️' : '🌙';
+});
+
+/* ══════════════════════════════════
+   TABS
+══════════════════════════════════ */
+let currentTab = 'free';
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('tabFree').classList.toggle('active', tab === 'free');
+  document.getElementById('tabScenario').classList.toggle('active', tab === 'scenario');
+  document.getElementById('chatArea').style.display = tab === 'free' ? 'flex' : 'none';
+  document.getElementById('scenarioScreen').style.display = tab === 'scenario' ? 'flex' : 'none';
+  document.getElementById('compBar').style.display = tab === 'free' ? 'flex' : 'none';
+}
+
+/* ══════════════════════════════════
+   INPUT MODE
+══════════════════════════════════ */
+let inputMode = 'text';
+function setMode(m) {
+  inputMode = m;
+  document.getElementById('btnText').classList.toggle('active', m === 'text');
+  document.getElementById('btnVoice').classList.toggle('active', m === 'voice');
+  document.getElementById('stText').style.display   = m === 'text' ? 'flex' : 'none';
+  document.getElementById('stVoice').style.display  = m === 'voice' ? 'flex' : 'none';
+  document.getElementById('stRec').style.display    = 'none';
+  document.getElementById('stProc').style.display   = 'none';
+  isRec = false; if (recInt) clearInterval(recInt);
+}
+
+/* ══════════════════════════════════
+   HOLD-TO-RECORD (proper touchstart/touchend)
+══════════════════════════════════ */
+let isRec = false, recInt = null, recSecs = 0;
+const micBtn = document.getElementById('micBtn');
+
+function startRec(e) {
+  e.preventDefault();
+  if (isRec) return;
+  isRec = true; recSecs = 0;
+  micBtn.classList.add('pressing');
+  document.getElementById('stVoice').style.display = 'none';
+  document.getElementById('stRec').style.display   = 'flex';
+  recInt = setInterval(() => {
+    recSecs++;
+    const m = String(Math.floor(recSecs/60)).padStart(2,'0');
+    const s = String(recSecs%60).padStart(2,'0');
+    document.getElementById('recTimer').textContent = `${m}:${s}`;
+    if (recSecs >= 10) stopRec();
+  }, 1000);
+}
+function stopRec(e) {
+  if (e) e.preventDefault();
+  if (!isRec) return;
+  isRec = false; clearInterval(recInt);
+  micBtn.classList.remove('pressing');
+  document.getElementById('stRec').style.display  = 'none';
+  document.getElementById('stProc').style.display = 'flex';
+  // reset progress bar
+  const p = document.getElementById('progFill');
+  p.style.animation = 'none'; p.offsetHeight; p.style.animation = '';
+  // after processing → show companion response
+  setTimeout(() => {
+    document.getElementById('stProc').style.display = 'none';
+    document.getElementById('stVoice').style.display = 'flex';
+    addVoiceToChat(recSecs);
+  }, 2500);
+}
+
+// Touch events (mobile hold)
+micBtn.addEventListener('touchstart', startRec, { passive: false });
+micBtn.addEventListener('touchend',   stopRec,  { passive: false });
+micBtn.addEventListener('touchcancel',stopRec,  { passive: false });
+// Mouse events (desktop hold)
+micBtn.addEventListener('mousedown', startRec);
+document.addEventListener('mouseup',  (e) => { if (isRec) stopRec(e); });
+
+document.getElementById('stopBtn').addEventListener('click', stopRec);
+
+function addVoiceToChat(dur) {
+  const chat = document.getElementById('chatArea');
+  const el = document.createElement('div');
+  el.className = 'msg-user';
+  el.style.animation = 'fadeSlideUp 0.3s ease';
+  const id = 'tr_' + Date.now();
+  el.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:flex-end">
+      <div class="voice-bubble">
+        <div class="voice-wave">
+          ${Array(14).fill(0).map(()=>`<div class="bar"></div>`).join('')}
+        </div>
+        <div class="voice-meta"><span class="voice-duration">0:0${Math.min(dur,9)}</span></div>
+        <div class="transcript-block" id="${id}">"[voice recording — transcript would appear here after Deepgram STT]"</div>
+        <div class="bubble-actions" style="margin-top:8px">
+          <div class="action-pill" onclick="toggleTranscript('${id}',this)">📝 Transcribe</div>
+          <div class="action-pill accent" onclick="showToast('Analyse feature works on pre-loaded examples above')">Analyse</div>
+        </div>
+      </div>
+      <div class="msg-timestamp-r">just now</div>
+    </div>`;
+  chat.appendChild(el);
+  setTyping(true);
+  scrollDown();
+  setTimeout(() => {
+    setTyping(false);
+    addCompanionMsg("Got it! That's a common challenge with async Rust. Are you using Tokio? That usually solves most runtime issues. 🦀");
+    scrollDown();
+  }, 2000);
+}
+
+/* ══════════════════════════════════
+   SEND TEXT → CLAUDE API
+══════════════════════════════════ */
+async function sendMsg() {
+  const inp = document.getElementById('msgInput');
+  const txt = inp.value.trim();
+  if (!txt) return;
+  inp.value = '';
+
+  // add user bubble
+  const chat = document.getElementById('chatArea');
+  const el = document.createElement('div');
+  el.className = 'msg-user';
+  el.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:flex-end">
+      <div class="bubble-user">
+        <div class="bubble-text">${esc(txt)}</div>
+        <div class="bubble-actions" style="justify-content:flex-end;margin-top:6px">
+          <div class="action-pill accent" onclick="showToast('Analyse works on demo examples above')">Analyse</div>
+        </div>
+      </div>
+      <div class="msg-timestamp-r">just now</div>
+    </div>`;
+  chat.appendChild(el);
+  scrollDown();
+
+  // show AI thinking
+  setTyping(true);
+  document.getElementById('aiThinking').classList.add('visible');
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: `You are Alex, a professional English conversation companion for Russian-speaking IT developers (B1-B2 level).
+Your personality: concise, friendly, professional. You're like a senior English-speaking colleague.
+Rules:
+- Keep replies SHORT (2-4 sentences max in prototype)
+- You naturally mix professional and casual tone
+- If the user writes in Russian or mixes Russian/English (code-switching), understand it perfectly and reply in English
+- Occasionally you can note one small natural improvement to their phrasing — always positively
+- Never be a grammar robot. Be a conversation partner first.
+- Topic context: IT developers, software engineering, modern tech stack`,
+        messages: [{ role: 'user', content: txt }]
+      })
+    });
+    const data = await resp.json();
+    const reply = data.content?.[0]?.text || "That's interesting! Tell me more about it.";
+    document.getElementById('aiThinking').classList.remove('visible');
+    setTyping(false);
+    addCompanionMsg(reply);
+  } catch(err) {
+    document.getElementById('aiThinking').classList.remove('visible');
+    setTyping(false);
+    addCompanionMsg("Looks like I'm having a connection issue — but I hear you! Let's keep going. What were you saying about Rust? 😄");
+  }
+  scrollDown();
+}
+
+function addCompanionMsg(text) {
+  const chat = document.getElementById('chatArea');
+  const el = document.createElement('div');
+  el.className = 'msg-comp';
+  el.style.animation = 'fadeSlideUp 0.3s ease';
+  el.innerHTML = `
+    <div class="avatar-sm"></div>
+    <div class="comp-bubble-wrap">
+      <div class="bubble-comp">
+        <div class="bubble-text">${esc(text)}</div>
+        <div class="bubble-actions">
+          <div class="action-pill" onclick="tts(this,'${text.replace(/'/g,"\\'")}')">▶ Listen</div>
+        </div>
+      </div>
+      <div class="msg-timestamp">just now</div>
+    </div>`;
+  chat.appendChild(el);
+  // move ai thinking to end
+  const thinking = document.getElementById('aiThinking');
+  chat.appendChild(thinking);
+  scrollDown();
+}
+
+/* ══════════════════════════════════
+   TRANSCRIPT TOGGLE
+══════════════════════════════════ */
+function toggleTranscript(id, btn) {
+  const el = document.getElementById(id);
+  el.classList.toggle('visible');
+  btn.textContent = el.classList.contains('visible') ? '📝 Hide' : '📝 Transcribe';
+}
+
+/* ══════════════════════════════════
+   ANALYSIS
+══════════════════════════════════ */
+let analysisOn = false;
+function showAnalysis() {
+  analysisOn = !analysisOn;
+  document.getElementById('recon').classList.toggle('visible', analysisOn);
+  document.getElementById('variants').classList.toggle('visible', analysisOn);
+  setTimeout(scrollDown, 100);
+}
+
+/* ══════════════════════════════════
+   SAVE VARIANT
+══════════════════════════════════ */
+function saveVariant(btn) {
+  if (btn.classList.contains('saved')) {
+    btn.textContent = '+ Save';
+    btn.classList.remove('saved');
+  } else {
+    btn.textContent = '✓ Saved';
+    btn.classList.add('saved');
+    showToast('Saved to Library 📚');
+  }
+}
+
+/* ══════════════════════════════════
+   TTS — Web Speech API
+══════════════════════════════════ */
+function tts(btn, text) {
+  if (!('speechSynthesis' in window)) { showToast('TTS not supported'); return; }
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'en-US'; u.rate = 0.88; u.pitch = 1.0;
+  btn.textContent = '⏸ Playing';
+  btn.classList.add('playing');
+  u.onend = u.onerror = () => {
+    btn.textContent = '▶ Listen';
+    btn.classList.remove('playing');
+  };
+  window.speechSynthesis.speak(u);
+}
+
+/* ══════════════════════════════════
+   TYPING INDICATOR
+══════════════════════════════════ */
+function setTyping(on) {
+  document.getElementById('typingDots').style.display = on ? 'inline-flex' : 'none';
+  document.getElementById('statusTxt').textContent = on ? 'typing…' : 'Professional · Online';
+}
+
+/* ══════════════════════════════════
+   TOAST
+══════════════════════════════════ */
+let toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+/* ══════════════════════════════════
+   TIMER
+══════════════════════════════════ */
+let secs = 252;
+setInterval(() => {
+  secs++;
+  document.getElementById('timer').textContent =
+    `${String(Math.floor(secs/60)).padStart(2,'0')}:${String(secs%60).padStart(2,'0')}`;
+}, 1000);
+
+/* ══════════════════════════════════
+   DRAG-TO-SCROLL variant cards
+══════════════════════════════════ */
+const scroll = document.getElementById('varScroll');
+let isDragging = false, startX, scrollLeft;
+scroll.addEventListener('mousedown', e => {
+  isDragging = true; startX = e.pageX - scroll.offsetLeft; scrollLeft = scroll.scrollLeft;
+});
+scroll.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  e.preventDefault();
+  const x = e.pageX - scroll.offsetLeft;
+  scroll.scrollLeft = scrollLeft - (x - startX);
+});
+scroll.addEventListener('mouseup',   () => isDragging = false);
+scroll.addEventListener('mouseleave',() => isDragging = false);
+
+/* ══════════════════════════════════
+   UTILS
+══════════════════════════════════ */
+function scrollDown() {
+  const c = document.getElementById('chatArea');
+  c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' });
+}
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// initial
+setTimeout(scrollDown, 150);
+</script>
+</body>
+</html>
