@@ -4,6 +4,50 @@
 
 ---
 
+## [2026-03-11] — WebSocket Pipeline + Multi-Agent Workflow (Session 4)
+
+### ✅ WebSocket Endpoint `/ws/session`
+- **feat**: Полная реализация voice pipeline: binary audio → STT → JSON stream
+- **feat**: Параллельный запуск Reconstruction + PhraseVariants через `asyncio.wait(FIRST_COMPLETED)`
+- **feat**: Streaming событий по мере готовности (не ждём оба результата)
+- **arch**: Именованные asyncio tasks для надёжной идентификации
+
+### ✅ DoS Protection & Stability
+- **fix**: `MAX_AUDIO_SIZE = 1MB` — защита от memory exhaustion
+- **fix**: Отмена pending задач через `task.cancel()` при ошибке/disconnect
+- **fix**: `except Exception:` вместо bare `except:` (PEP8)
+- **fix**: Нейтральный filename `audio.bin` вместо hardcoded `audio.webm`
+
+### ✅ Testing
+- **test**: 6 тестов (orchestrator: 3, ws_session: 3)
+- Покрытие: success path, empty transcript, LLM failure graceful degradation
+- Моки изолируют от внешних API (Deepgram, Groq, LiteLLM)
+
+### ✅ Multi-Agent Workflow
+- Параллельная работа: code-reviewer + tester одновременно в разных терминалах
+- Planner агент обнаружил что Task 2 (STT integration) уже выполнена
+- Code review выявил 4 WARNING, все исправлены до коммита
+
+### ✅ Windows Compatibility
+- **fix**: `nul` в `.gitignore` (Windows-специфичный артефакт от vim)
+- Уроки: vim создаёт `nul` при merge conflict, LF/CRLF warnings нормальны
+
+### 📁 Новые файлы
+```
+backend/app/api/__init__.py
+backend/app/api/routes/__init__.py
+backend/app/api/routes/ws.py          — WebSocket endpoint
+backend/app/agents/orchestrator.py    — PipelineResult + run_pipeline()
+backend/tests/__init__.py
+backend/tests/conftest.py
+backend/tests/test_ws_session.py
+backend/tests/test_orchestrator.py
+plans/PLAN-ws-session-001.md
+plans/PLAN-stt-integration-002.md
+```
+
+---
+
 ## [2026-03-11] — Infrastructure Setup (Session 3)
 
 ### ✅ Coolify — Deployment Platform
@@ -116,9 +160,10 @@
 
 ## Pending (следующая сессия)
 
-- [ ] **WebSocket endpoint** `/ws/session` — FastAPI, binary audio → STT → JSON stream
-- [ ] **Orchestrator** — parallel asyncio.gather для Reconstruction + PhraseVariants
-- [ ] **Next.js VoiceRecorder** — MediaRecorder → WebSocket → UI
+- [x] ~~WebSocket endpoint `/ws/session`~~ ✅ Session 4
+- [x] ~~Orchestrator — parallel asyncio.gather~~ ✅ Session 4
+- [ ] **Next.js VoiceRecorder** — MediaRecorder → WebSocket → streaming UI
 - [ ] Добавить DEEPGRAM_API_KEY в Coolify env vars (через UI)
 - [ ] Добавить GROQ_API_KEY в Coolify env vars
 - [ ] Инициализировать Next.js app в `apps/web/`
+- [ ] E2E тест с реальным аудио через websocat

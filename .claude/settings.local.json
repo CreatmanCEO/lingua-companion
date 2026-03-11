@@ -12,7 +12,21 @@
       "Bash(DATABASE_URL=\"postgresql://test:test@localhost:5432/test\" SECRET_KEY=\"test-secret-key\" python -m pytest:*)",
       "Bash(printf:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(pnpm --version:*)",
+      "Bash(where:*)",
+      "Bash(npm --version:*)",
+      "Bash(node --version:*)",
+      "Bash(corepack enable:*)",
+      "Bash(npm install:*)",
+      "Bash(pnpm create:*)",
+      "Bash(pnpm add:*)",
+      "Bash(pnpm dlx:*)",
+      "Bash(pnpm build:*)",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm vitest:*)",
+      "Bash(pnpm tsc:*)",
+      "Bash(pnpm lint:*)"
     ]
   }
 }

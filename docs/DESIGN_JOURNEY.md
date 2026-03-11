@@ -720,3 +720,98 @@ docs/prototype/
 - Логике показа Reconstruction + Variants (только по [Analyse])
 
 Next.js компоненты должны точно воспроизводить прототип — не изобретать новый дизайн.
+
+---
+
+## 17. Backend Implementation — Session 4 (2026-03-11)
+
+### Task 1: WebSocket Endpoint `/ws/session`
+
+**Архитектурные решения:**
+
+| Решение | Обоснование |
+|---------|-------------|
+| PhraseVariants получает raw STT text | Latency > accuracy трейдофф. Ждать Reconstruction = +500ms |
+| `asyncio.wait(FIRST_COMPLETED)` | Streaming по мере готовности, не блокируем на медленном агенте |
+| Именованные tasks через dict | `task is reconstruction_task` ненадёжно после `asyncio.wait` |
+| `MAX_AUDIO_SIZE = 1MB` | DoS protection. Browser MediaRecorder ~50KB/sec = 20 sec max |
+| `task.cancel()` при ошибке | Предотвращает memory leak от zombie tasks |
+| Filename `audio.bin` | MIME определяется по magic bytes, не по расширению |
+
+**Pipeline flow:**
+
+```
+Browser (WebSocket binary)
+    ↓
+receive_bytes() + size validation
+    ↓
+STT Agent (Deepgram Nova-3 / Groq fallback)
+    ↓ send_event("stt_result")
+    ↓
+asyncio.wait([reconstruct, get_variants], FIRST_COMPLETED)
+    ↓                    ↓
+send_event()         send_event()
+("reconstruction")   ("variants")
+```
+
+### Task 2: STT Integration — Already Done
+
+**Открытие:** При планировании Task 2 planner агент обнаружил, что:
+- `stt.py` уже содержит полную реализацию Deepgram Nova-3 + Groq fallback
+- `orchestrator.py` и `ws.py` уже импортируют реальный `transcribe()`
+- Mock используется только в тестах (правильная изоляция)
+
+**Урок:** Всегда проверять текущее состояние кода перед планированием.
+
+### Multi-Agent Workflow
+
+**Параллельная работа агентов:**
+```
+Terminal 1: code-reviewer agent     Terminal 2: tester agent
+     ↓                                   ↓
+git diff --cached                   pytest tests/ -v
+     ↓                                   ↓
+4 WARNING найдено                   6/6 passed
+     ↓
+Исправления в ws.py
+     ↓
+Повторный тест: 6/6 passed
+```
+
+**Code Review Findings (все исправлены):**
+
+| # | Severity | Issue | Fix |
+|---|----------|-------|-----|
+| 1 | WARNING | Нет ограничения размера audio | `MAX_AUDIO_SIZE = 1MB` |
+| 2 | WARNING | Pending tasks не отменяются | `task.cancel()` в except |
+| 3 | WARNING | Hardcoded `audio.webm` | Нейтральный `audio.bin` |
+| 4 | WARNING | `task is` ненадёжно | Dict mapping task → event_type |
+
+### Windows-специфичные уроки
+
+| Проблема | Причина | Решение |
+|----------|---------|---------|
+| `nul` файл в репо | vim создаёт при merge conflict на Windows | Добавить в `.gitignore` |
+| LF/CRLF warnings | Git auto-convert на Windows | Игнорировать, `.gitattributes` |
+| Пути в pytest | `C:\` vs `/c/` в bash | Использовать env vars |
+
+### Файловая структура после Session 4
+
+```
+backend/
+├── app/
+│   ├── api/
+│   │   ├── __init__.py          ← NEW
+│   │   └── routes/
+│   │       ├── __init__.py      ← NEW
+│   │       └── ws.py            ← NEW: WebSocket endpoint
+│   ├── agents/
+│   │   ├── orchestrator.py      ← REWRITTEN: PipelineResult + run_pipeline
+│   │   └── ... (остальные без изменений)
+│   └── main.py                  ← MODIFIED: +include_router(ws_router)
+└── tests/
+    ├── __init__.py              ← NEW
+    ├── conftest.py              ← NEW
+    ├── test_orchestrator.py     ← NEW: 3 tests
+    └── test_ws_session.py       ← NEW: 3 tests
+```
