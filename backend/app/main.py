@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from app.core.config import settings
+from app.api.routes.ws import router as ws_router
 
 
 @asynccontextmanager
@@ -29,6 +30,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# WebSocket routes
+app.include_router(ws_router)
 
 
 @app.get("/health")
