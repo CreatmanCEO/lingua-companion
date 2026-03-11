@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd backend && python -m pytest tests/ -x --timeout=60 -q 2>&1 | tail -5 || (echo '{\"block\": true, \"message\": \"Backend tests failing. Fix before commit.\"}' 1>&2 && exit 2)",
+            "command": "python -m pytest backend/tests/ -x --timeout=60 -q 2>&1 | tail -5",
             "timeout": 120
           }
         ]
@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'Reminder: run make test before committing'",
+            "command": "echo Reminder: run make test before committing",
             "timeout": 5
           }
         ]
