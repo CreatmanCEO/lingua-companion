@@ -1,5 +1,9 @@
 # LinguaCompanion AI — Claude Code Project Constitution
 
+## Language
+
+**ВСЕГДА отвечай на русском языке.** Весь вывод, объяснения, комментарии к коду, сообщения об ошибках и планы — только на русском. Технические термины, названия функций и код оставляй на английском.
+
 ## Project Overview
 
 Voice-first AI language learning platform for Russian-speaking IT professionals.
