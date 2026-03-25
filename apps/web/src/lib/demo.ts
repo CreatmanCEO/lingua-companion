@@ -59,8 +59,25 @@ export function getScenarioWelcomeMessage(
     || `Let's begin the ${scenario.name} scenario.`;
 }
 
-export function getDemoReconstruction(text: string) {
-  const demoExamples: Record<string, ReturnType<typeof getDemoReconstruction>> = {
+interface DemoReconstructionResult {
+  reconstruction: {
+    corrected: string;
+    original_intent: string;
+    main_error: string | null;
+    error_type: "grammar" | "vocabulary" | "code_switching" | "none";
+    explanation: string | null;
+  };
+  variants: {
+    simple: string;
+    professional: string;
+    colloquial: string;
+    slang: string;
+    idiom: string;
+  };
+}
+
+export function getDemoReconstruction(text: string): DemoReconstructionResult {
+  const demoExamples: Record<string, DemoReconstructionResult> = {
     "i work on deployment pipeline": {
       reconstruction: {
         corrected: "I've been working on the deployment pipeline",
