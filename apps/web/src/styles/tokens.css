@@ -1,0 +1,112 @@
+/**
+ * Design tokens для LinguaCompanion
+ * Дизайн-система "Engineering Dark"
+ * Источник: docs/DESIGN_JOURNEY.md п.10
+ */
+
+:root {
+  /* === Фоны — синевато-чёрные, не просто серые === */
+  --bg-void: #0C0C14;        /* основной фон */
+  --bg-surface: #12121F;     /* панели, header */
+  --bg-card: #1A1A2E;        /* карточки, bubbles */
+  --bg-elevated: #212135;    /* hover, active */
+  --bg-border: #2E2E4A;      /* разделители */
+
+  /* === Текст === */
+  --text-primary: #EEEEF5;   /* основной */
+  --text-secondary: #8080A8; /* метки, timestamp */
+  --text-muted: #46466A;     /* placeholder */
+
+  /* === Единственный акцент === */
+  --accent: #5E5CE6;         /* индиго */
+  --accent-soft: #5E5CE620;  /* фоны акцентных элементов */
+  --accent-hover: #7B7AFF;   /* hover */
+
+  /* === Состояния === */
+  --recording: #FF3B30;      /* красная точка записи */
+  --success: #32D74B;
+  --warning: #FF9F0A;
+
+  /* === Цвета 5 вариантов фраз === */
+  --c-simple: #32D74B;       /* зелёный */
+  --c-professional: #0A84FF; /* синий */
+  --c-colloquial: #FF9F0A;   /* оранжевый */
+  --c-slang: #FF375F;        /* розово-красный */
+  --c-idiom: #BF5AF2;        /* фиолетовый */
+
+  /* === Типографика — размеры === */
+  --text-xs: 11px;           /* timestamp, метки */
+  --text-sm: 13px;           /* secondary text, кнопки */
+  --text-base: 15px;         /* сообщения, основной текст */
+  --text-lg: 18px;           /* имя companion, заголовки блоков */
+  --text-xl: 22px;           /* заголовки экранов */
+
+  /* === Шрифты === */
+  --font-ui: 'Geist', sans-serif;
+  --font-mono: 'Geist Mono', monospace;
+
+  /* === Радиусы === */
+  --radius-sm: 6px;          /* кнопки, инпуты */
+  --radius-md: 8px;          /* карточки вариантов */
+  --radius-lg: 12px;         /* bottom sheets, панели */
+  --radius-bubble: 18px;     /* chat bubbles */
+  --radius-full: 50%;        /* кнопка микрофона, аватар */
+
+  /* === Тени (используются в light mode) === */
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
+
+  /* === Анимации === */
+  --transition-fast: 150ms ease;
+  --transition-normal: 200ms ease;
+  --transition-slow: 300ms ease;
+}
+
+/* === Светлая тема === */
+.light {
+  /* Фоны — молочно-тёплые, не слепят */
+  --bg-void: #F5F5FA;
+  --bg-surface: #FFFFFF;
+  --bg-card: #F0F0F8;
+  --bg-elevated: #E8E8F5;
+  --bg-border: #D8D8E8;
+
+  /* Текст */
+  --text-primary: #1C1C2E;   /* тёмно-синий, не чёрный */
+  --text-secondary: #606080;
+  --text-muted: #A0A0C0;
+
+  /* Акцент — чуть темнее для контраста */
+  --accent: #4A48D4;
+  --accent-soft: #4A48D415;
+  --accent-hover: #6361EE;
+
+  /* Состояния и варианты — те же цвета */
+}
+
+/* === Переход темы === */
+:root {
+  color-scheme: dark;
+}
+
+.light {
+  color-scheme: light;
+}
+
+/* Плавный переход при смене темы */
+*,
+*::before,
+*::after {
+  transition: background-color var(--transition-normal),
+              border-color var(--transition-normal),
+              color var(--transition-normal);
+}
+
+/* Отключение анимаций для пользователей с prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}

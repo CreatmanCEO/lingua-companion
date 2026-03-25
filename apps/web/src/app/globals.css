@@ -1,0 +1,342 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "../styles/tokens.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  /* === Цвета из дизайн-системы "Engineering Dark" === */
+  --color-bg-void: var(--bg-void);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-card: var(--bg-card);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-bg-border: var(--bg-border);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-hover: var(--accent-hover);
+
+  --color-recording: var(--recording);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+
+  /* Цвета 5 вариантов фраз */
+  --color-c-simple: var(--c-simple);
+  --color-c-professional: var(--c-professional);
+  --color-c-colloquial: var(--c-colloquial);
+  --color-c-slang: var(--c-slang);
+  --color-c-idiom: var(--c-idiom);
+
+  /* shadcn/ui совместимость */
+  --color-background: var(--bg-void);
+  --color-foreground: var(--text-primary);
+  --color-card: var(--bg-card);
+  --color-card-foreground: var(--text-primary);
+  --color-popover: var(--bg-surface);
+  --color-popover-foreground: var(--text-primary);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--text-primary);
+  --color-secondary: var(--bg-elevated);
+  --color-secondary-foreground: var(--text-primary);
+  --color-muted: var(--bg-elevated);
+  --color-muted-foreground: var(--text-secondary);
+  --color-border: var(--bg-border);
+  --color-input: var(--bg-border);
+  --color-ring: var(--accent);
+  --color-destructive: var(--recording);
+
+  /* Шрифты */
+  --font-sans: var(--font-ui);
+  --font-mono: var(--font-mono);
+
+  /* Радиусы */
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: calc(var(--radius-lg) * 1.2);
+  --radius-2xl: calc(var(--radius-lg) * 1.5);
+  --radius-3xl: calc(var(--radius-lg) * 2);
+  --radius-4xl: calc(var(--radius-lg) * 2.5);
+  --radius-bubble: var(--radius-bubble);
+  --radius-full: var(--radius-full);
+
+  /* Sidebar (для shadcn Sheet) */
+  --color-sidebar: var(--bg-surface);
+  --color-sidebar-foreground: var(--text-primary);
+  --color-sidebar-primary: var(--accent);
+  --color-sidebar-primary-foreground: var(--text-primary);
+  --color-sidebar-accent: var(--bg-elevated);
+  --color-sidebar-accent-foreground: var(--text-primary);
+  --color-sidebar-border: var(--bg-border);
+  --color-sidebar-ring: var(--accent);
+
+  /* Chart colors */
+  --color-chart-1: var(--c-simple);
+  --color-chart-2: var(--c-professional);
+  --color-chart-3: var(--c-colloquial);
+  --color-chart-4: var(--c-slang);
+  --color-chart-5: var(--c-idiom);
+}
+
+:root {
+  /* Базовый радиус для shadcn */
+  --radius: 0.5rem;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-bg-void text-text-primary;
+    font-family: var(--font-ui);
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* === Утилиты для дизайн-системы === */
+@layer utilities {
+  /* Фоны */
+  .bg-void {
+    background-color: var(--bg-void);
+  }
+  .bg-surface {
+    background-color: var(--bg-surface);
+  }
+  .bg-card {
+    background-color: var(--bg-card);
+  }
+  .bg-elevated {
+    background-color: var(--bg-elevated);
+  }
+
+  /* Текст */
+  .text-primary {
+    color: var(--text-primary);
+  }
+  .text-secondary {
+    color: var(--text-secondary);
+  }
+  .text-muted {
+    color: var(--text-muted);
+  }
+
+  /* Границы */
+  .border-subtle {
+    border-color: var(--bg-border);
+  }
+
+  /* Акцент */
+  .text-accent {
+    color: var(--accent);
+  }
+  .bg-accent {
+    background-color: var(--accent);
+  }
+  .bg-accent-soft {
+    background-color: var(--accent-soft);
+  }
+
+  /* Состояния */
+  .text-recording {
+    color: var(--recording);
+  }
+  .bg-recording {
+    background-color: var(--recording);
+  }
+  .text-success {
+    color: var(--success);
+  }
+  .text-warning {
+    color: var(--warning);
+  }
+
+  /* Цвета вариантов */
+  .text-c-simple {
+    color: var(--c-simple);
+  }
+  .text-c-professional {
+    color: var(--c-professional);
+  }
+  .text-c-colloquial {
+    color: var(--c-colloquial);
+  }
+  .text-c-slang {
+    color: var(--c-slang);
+  }
+  .text-c-idiom {
+    color: var(--c-idiom);
+  }
+
+  .bg-c-simple {
+    background-color: var(--c-simple);
+  }
+  .bg-c-professional {
+    background-color: var(--c-professional);
+  }
+  .bg-c-colloquial {
+    background-color: var(--c-colloquial);
+  }
+  .bg-c-slang {
+    background-color: var(--c-slang);
+  }
+  .bg-c-idiom {
+    background-color: var(--c-idiom);
+  }
+
+  /* Радиусы */
+  .rounded-bubble {
+    border-radius: var(--radius-bubble);
+  }
+
+  /* Тени (только в light mode) */
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+
+  /* Типографика */
+  .text-size-xs {
+    font-size: var(--text-xs);
+  }
+  .text-size-sm {
+    font-size: var(--text-sm);
+  }
+  .text-size-base {
+    font-size: var(--text-base);
+  }
+  .text-size-lg {
+    font-size: var(--text-lg);
+  }
+  .text-size-xl {
+    font-size: var(--text-xl);
+  }
+
+  /* Font family */
+  .font-mono {
+    font-family: var(--font-mono);
+  }
+}
+
+/* === Анимации === */
+@keyframes pulse-recording {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 12px rgba(255, 59, 48, 0);
+  }
+}
+
+.animate-pulse-recording {
+  animation: pulse-recording 1.5s ease-in-out infinite;
+}
+
+@keyframes waveform-bar {
+  0%, 100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.animate-waveform {
+  animation: waveform-bar 0.5s ease-in-out infinite;
+}
+
+/* === Дополнительные токены для прототипа === */
+:root {
+  --user-bubble: #1E1E38;
+  --comp-bubble: #161624;
+  --voice-bar-bg: #0F0F1C;
+  --input-bg: #1A1A2E;
+}
+
+.light {
+  --user-bubble: #E8E8F8;
+  --comp-bubble: #FFFFFF;
+  --voice-bar-bg: #FFFFFF;
+  --input-bg: #F4F4FC;
+}
+
+@layer utilities {
+  /* Bubble backgrounds */
+  .bg-user-bubble {
+    background-color: var(--user-bubble);
+  }
+  .bg-comp-bubble {
+    background-color: var(--comp-bubble);
+  }
+  .bg-voice-bar {
+    background-color: var(--voice-bar-bg);
+  }
+  .bg-input {
+    background-color: var(--input-bg);
+  }
+}
+
+/* === Typing dots animation === */
+@keyframes typing-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-3px); opacity: 1; }
+}
+
+.animate-typing-dot {
+  animation: typing-bounce 1.2s infinite;
+}
+
+/* === Live wave bars animation === */
+@keyframes live-bounce {
+  0%, 100% { transform: scaleY(0.35); }
+  50% { transform: scaleY(1); }
+}
+
+.animate-live-bar {
+  animation: live-bounce 0.8s ease-in-out infinite;
+}
+
+/* === AI thinking dots === */
+@keyframes ai-pulse {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+.animate-ai-dot {
+  animation: ai-pulse 1.4s ease infinite;
+}
+
+/* === Fade slide up animation === */
+@keyframes fade-slide-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-slide-up {
+  animation: fade-slide-up 0.3s ease;
+}
+
+/* === Recording blink === */
+@keyframes blink-recording {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
+}
+
+.animate-blink {
+  animation: blink-recording 1s infinite;
+}
+
+/* === Scrollbar hiding === */
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

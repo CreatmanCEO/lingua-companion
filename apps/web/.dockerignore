@@ -1,0 +1,32 @@
+# Dependencies
+node_modules
+
+# Build outputs
+.next
+out
+dist
+
+# Testing
+coverage
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+__tests__
+
+# Development
+.env.local
+.env.*.local
+*.log
+
+# IDE
+.vscode
+.idea
+
+# Git
+.git
+.gitignore
+
+# Misc
+README.md
+*.md
