@@ -4,6 +4,63 @@
 
 ---
 
+## [2026-03-25] — Companion Agent + Code Review Fixes (Session 5)
+
+### ✅ Companion Agent — реальные LLM ответы
+- **feat**: `companion.py` — полная реализация с 3 персонами (Alex/Sam/Morgan)
+- **feat**: System prompts: Professional, Casual, Mentor стили
+- **feat**: Поддержка сценариев (companionRole/userRole в system prompt)
+- **feat**: Скользящее окно истории (20 сообщений)
+- **feat**: Fallback при ошибке LLM — generic ответ, pipeline не ломается
+- **arch**: Companion вызывается ПОСЛЕ reconstruction, параллельно с variants
+
+### ✅ WebSocket Protocol v2
+- **feat**: JSON messages от клиента: `session_config`, `text_message`
+- **feat**: Новый event `companion_response` от сервера
+- **feat**: `process_text()` — обработка текста без STT (Reconstruction → Variants + Companion)
+- **feat**: `run_companion_and_variants()` — оркестрация параллельных задач
+- **arch**: Backward compatible: binary = audio (v1), JSON = новые команды
+
+### ✅ Frontend Integration
+- **feat**: `sendConfig(companion, scenario)` — отправка настроек сессии
+- **feat**: `sendText(text)` — текстовые сообщения через WS
+- **feat**: `onCompanionResponse` callback — реальные ответы companion
+- **feat**: `pendingResultsRef` расширен до 3 полей (reconstruction + variants + companion)
+- **refactor**: Demo getCompanionResponse() сохранён как offline fallback
+
+### ✅ Code Review — 17 fixes (PR #1 merged)
+- **fix(critical)**: XSS через `dangerouslySetInnerHTML` → React `<FormatExplanation>` компонент
+- **fix(critical)**: Race condition — `pendingResultsRef` не сбрасывался при reconnect
+- **fix(critical)**: Processing timeout 15s — защита от бесконечного спиннера
+- **fix**: TTS cleanup on unmount, ActionPill DRY extraction, demo.ts extraction
+- **a11y**: aria-labels, убран запрет zoom (WCAG 1.4.4)
+- **feat**: Error Boundary, `MAX_MESSAGES = 100`, `timestamp: number`
+
+### ✅ API Keys
+- **fix**: Deepgram/Groq ключи обновлены, Supabase ACTIVE
+
+### 📁 Новые/изменённые файлы
+```
+backend/app/agents/companion.py        — NEW: полная реализация (из stub)
+backend/app/api/routes/ws.py           — UPDATED: JSON protocol, companion call
+backend/tests/test_companion.py        — NEW: 7 unit тестов
+backend/tests/test_ws_session.py       — UPDATED: +3 теста (session_config, text_message)
+apps/web/src/hooks/useVoiceSession.ts  — UPDATED: companion_response, sendConfig, sendText
+apps/web/src/app/page.tsx              — UPDATED: real responses, demo fallback
+apps/web/src/app/error.tsx             — NEW: Error Boundary
+apps/web/src/components/ui/ActionPill.tsx — NEW: shared component
+apps/web/src/lib/demo.ts              — NEW: extracted demo logic
+plans/PLAN-companion-agent-2026-03-25.md — NEW
+plans/PLAN-code-review-fixes-2026-03-25.md — NEW
+```
+
+### 📊 Тесты
+- Backend: **18/18 passed** (pytest) — было 8, +10 новых
+- Frontend: **49/49 passed** (vitest) — было 45, +4 новых
+- ESLint: **0 errors, 0 warnings**
+
+---
+
 ## [2026-03-11] — WebSocket Pipeline + Multi-Agent Workflow (Session 4)
 
 ### ✅ WebSocket Endpoint `/ws/session`
