@@ -9,10 +9,10 @@ from app.api.routes.ws import router as ws_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    print(f"🚀 {settings.APP_NAME} v{settings.VERSION} starting...")
+    print(f"[START] {settings.APP_NAME} v{settings.VERSION} starting...")
     yield
     # Shutdown
-    print("👋 Shutting down...")
+    print("[STOP] Shutting down...")
 
 
 app = FastAPI(
