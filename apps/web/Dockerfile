@@ -29,7 +29,8 @@ RUN corepack enable && corepack prepare pnpm@9 --activate
 # Копирование зависимостей из предыдущего stage
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
-COPY --from=deps /app/packages/types/node_modules ./packages/types/node_modules 2>/dev/null || true
+# packages/types может не иметь node_modules (no runtime deps)
+COPY --from=deps /app/packages/types ./packages/types
 
 # Копирование исходного кода
 COPY . .
