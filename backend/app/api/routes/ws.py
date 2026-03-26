@@ -273,7 +273,7 @@ async def websocket_session(websocket: WebSocket):
                 # 2. STT
                 session["processing"] = True
                 try:
-                    stt_result = await transcribe(audio_bytes, "audio.bin")
+                    stt_result = await transcribe(audio_bytes, "audio.webm")
                     await send_event(websocket, "stt_result", stt_result)
                 except Exception as e:
                     session["processing"] = False
