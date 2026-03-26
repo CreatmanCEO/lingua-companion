@@ -8,7 +8,7 @@ Orchestrator Agent — LinguaCompanion
 
 Используется как WebSocket endpoint и как standalone API.
 """
-import asyncio
+
 import time
 from dataclasses import dataclass
 from typing import Optional

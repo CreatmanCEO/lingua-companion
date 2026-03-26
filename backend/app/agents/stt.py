@@ -12,7 +12,6 @@ Deepgram language=multi correctly detects all RU+EN combinations.
 import logging
 import time
 import httpx
-import json
 from groq import AsyncGroq
 from app.core.config import settings
 
@@ -125,7 +124,8 @@ async def transcribe(audio_bytes: bytes, filename: str = "audio.m4a") -> dict:
         try:
             ext = filename.rsplit(".", 1)[-1].lower()
             mime = {"m4a": "audio/mp4", "mp3": "audio/mpeg",
-                    "wav": "audio/wav", "ogg": "audio/ogg"}.get(ext, "audio/mp4")
+                    "wav": "audio/wav", "ogg": "audio/ogg",
+                    "webm": "audio/webm"}.get(ext, "audio/webm")
             result = await transcribe_deepgram(audio_bytes, mime)
             result["fallback"] = False
             return result
