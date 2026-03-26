@@ -98,6 +98,7 @@ async def reconstruct(transcript: str) -> dict:
                 response_format={"type": "json_object"},
                 temperature=0.3 if attempt == 0 else 0.1,
                 max_tokens=400,
+                num_retries=2,
             )
 
             raw = response.choices[0].message.content

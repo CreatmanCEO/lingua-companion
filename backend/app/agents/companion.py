@@ -142,6 +142,7 @@ async def generate_response(
             messages=messages,
             temperature=0.7,
             max_tokens=400,
+            num_retries=2,
         )
 
         text = response.choices[0].message.content.strip()
