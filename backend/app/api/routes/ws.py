@@ -1,13 +1,17 @@
 import asyncio
 import json
+import logging
+import time
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from starlette.websockets import WebSocketState
 
+logger = logging.getLogger(__name__)
+
 from app.agents.stt import transcribe
 from app.agents.reconstruction import reconstruct
-from app.agents.phrase_variants import get_variants
-from app.agents.companion import generate_response
+from app.agents.phrase_variants import get_variants, REQUIRED_STYLES
+from app.agents.companion import generate_response, _FALLBACK_RESPONSE
 
 
 router = APIRouter()
@@ -17,6 +21,21 @@ MAX_AUDIO_SIZE = 1 * 1024 * 1024
 
 # Максимальное количество сообщений в истории сессии
 MAX_HISTORY_MESSAGES = 20
+
+# Rate limiting: максимум сообщений в минуту на сессию
+MAX_MESSAGES_PER_MINUTE = 15
+
+
+def _check_rate_limit(session: dict) -> bool:
+    """Check if session exceeds rate limit. Returns True if blocked."""
+    now = time.time()
+    timestamps = session["message_timestamps"]
+    # Remove timestamps older than 60 seconds
+    session["message_timestamps"] = [t for t in timestamps if now - t < 60]
+    if len(session["message_timestamps"]) >= MAX_MESSAGES_PER_MINUTE:
+        return True
+    session["message_timestamps"].append(now)
+    return False
 
 
 async def send_event(ws: WebSocket, event_type: str, data: dict) -> None:
@@ -58,8 +77,13 @@ async def run_companion_and_variants(
     if not variants_task.done():
         remaining.add(variants_task)
     else:
-        # Variants уже готов -- отправляем
-        await send_event(websocket, "variants_result", variants_task.result())
+        # Variants уже готов -- отправляем (с degraded handling)
+        try:
+            await send_event(websocket, "variants_result", variants_task.result())
+        except Exception:
+            logger.error("Variants task failed (already done)", exc_info=True)
+            fallback_variants = {k: {"text": corrected, "context": ""} for k in REQUIRED_STYLES}
+            await send_event(websocket, "variants_result", {**fallback_variants, "degraded": True})
     remaining.add(companion_task)
 
     task_to_event = {
@@ -74,12 +98,27 @@ async def run_companion_and_variants(
         for task in done:
             event_type = task_to_event.get(task)
             if event_type:
-                await send_event(websocket, event_type, task.result())
+                try:
+                    await send_event(websocket, event_type, task.result())
+                except Exception:
+                    logger.error("Task %s failed in degraded mode", event_type, exc_info=True)
+                    if event_type == "variants_result":
+                        fallback = {k: {"text": corrected, "context": ""} for k in REQUIRED_STYLES}
+                        await send_event(websocket, event_type, {**fallback, "degraded": True})
+                    elif event_type == "companion_response":
+                        await send_event(websocket, event_type, {
+                            "text": _FALLBACK_RESPONSE,
+                            "companion": session.get("companion", "Alex"),
+                            "degraded": True,
+                        })
 
     # Обновляем историю сессии
     history = session.setdefault("history", [])
     history.append({"role": "user", "content": corrected})
-    companion_result = companion_task.result()
+    try:
+        companion_result = companion_task.result()
+    except Exception:
+        companion_result = {"text": _FALLBACK_RESPONSE, "companion": session.get("companion", "Alex")}
     history.append({
         "role": "assistant",
         "content": companion_result.get("text", ""),
@@ -144,12 +183,15 @@ async def websocket_session(websocket: WebSocket):
     - text_message: {text}
     """
     await websocket.accept()
+    logger.info("WebSocket connected")
 
-    # Состояние сессии: companion, scenario, history
+    # Состояние сессии: companion, scenario, history, processing, rate limiting
     session: dict = {
         "companion": "Alex",
         "scenario": None,
         "history": [],
+        "processing": False,
+        "message_timestamps": [],
     }
 
     try:
@@ -172,9 +214,25 @@ async def websocket_session(websocket: WebSocket):
                         continue
 
                     elif msg_type == "text_message":
+                        # Concurrent processing check
+                        if session["processing"]:
+                            await send_event(websocket, "error", {
+                                "message": "Already processing a request",
+                            })
+                            continue
+                        # Rate limit check
+                        if _check_rate_limit(session):
+                            await send_event(websocket, "error", {
+                                "message": "Rate limit exceeded",
+                            })
+                            continue
                         # Текстовое сообщение -- без STT
                         text = data.get("text", "")
-                        await process_text(websocket, text, session)
+                        session["processing"] = True
+                        try:
+                            await process_text(websocket, text, session)
+                        finally:
+                            session["processing"] = False
                         continue
 
                 except json.JSONDecodeError:
@@ -186,7 +244,21 @@ async def websocket_session(websocket: WebSocket):
 
             # Обработка бинарных аудио-сообщений (существующая логика)
             if "bytes" in message:
+                # Concurrent processing check
+                if session["processing"]:
+                    await send_event(websocket, "error", {
+                        "message": "Already processing a request",
+                    })
+                    continue
+                # Rate limit check
+                if _check_rate_limit(session):
+                    await send_event(websocket, "error", {
+                        "message": "Rate limit exceeded",
+                    })
+                    continue
+
                 audio_bytes = message["bytes"]
+                logger.info("Received audio: %d bytes", len(audio_bytes))
 
                 # Validate audio size (DoS protection)
                 if len(audio_bytes) > MAX_AUDIO_SIZE:
@@ -199,10 +271,12 @@ async def websocket_session(websocket: WebSocket):
                     continue
 
                 # 2. STT
+                session["processing"] = True
                 try:
-                    stt_result = await transcribe(audio_bytes, "audio.bin")
+                    stt_result = await transcribe(audio_bytes, "audio.webm")
                     await send_event(websocket, "stt_result", stt_result)
                 except Exception as e:
+                    session["processing"] = False
                     await send_event(
                         websocket, "error",
                         {"message": f"STT failed: {str(e)}"},
@@ -211,29 +285,49 @@ async def websocket_session(websocket: WebSocket):
 
                 transcript = stt_result.get("text", "")
                 if not transcript.strip():
+                    session["processing"] = False
                     await send_event(
                         websocket, "error", {"message": "Empty transcript"}
                     )
                     continue
 
-                # 3. Reconstruction + Variants + Companion
-                # Стратегия: reconstruction и variants стартуют параллельно.
-                # Когда reconstruction готов -- запускаем companion.
-                # Variants и companion работают параллельно.
+                # Send processing_started before pipeline
+                await send_event(websocket, "processing_started", {
+                    "transcript": transcript,
+                })
+
+                # 3. Reconstruction -> parallel(Variants, Companion)
+                # Degraded mode: each stage fails independently
                 tasks = {}
+
+                # Reconstruction with degraded fallback
                 try:
                     recon_task = asyncio.create_task(
                         reconstruct(transcript), name="reconstruction"
                     )
-                    variants_task = asyncio.create_task(
-                        get_variants(transcript), name="variants"
-                    )
                     tasks["reconstruction"] = recon_task
-                    tasks["variants"] = variants_task
-
-                    # Ждём reconstruction первым
                     reconstruction_result = await recon_task
+                except Exception:
+                    logger.error("Reconstruction failed, using raw transcript", exc_info=True)
+                    reconstruction_result = {
+                        "corrected": transcript,
+                        "original_intent": transcript,
+                        "main_error": None,
+                        "error_type": "none",
+                        "explanation": None,
+                        "changes": [],
+                        "degraded": True,
+                    }
 
+                corrected = reconstruction_result.get("corrected", transcript)
+
+                # Variants with corrected text
+                variants_task = asyncio.create_task(
+                    get_variants(corrected), name="variants"
+                )
+                tasks["variants"] = variants_task
+
+                try:
                     # Запускаем companion + ждём variants
                     await run_companion_and_variants(
                         websocket,
@@ -242,8 +336,8 @@ async def websocket_session(websocket: WebSocket):
                         variants_task,
                         session,
                     )
-
                 except Exception as e:
+                    logger.error("Pipeline failed", exc_info=True)
                     for task in tasks.values():
                         if not task.done():
                             task.cancel()
@@ -251,9 +345,11 @@ async def websocket_session(websocket: WebSocket):
                         websocket, "error",
                         {"message": f"Processing failed: {str(e)}"},
                     )
+                finally:
+                    session["processing"] = False
 
     except WebSocketDisconnect:
-        pass  # Normal disconnect
+        logger.info("WebSocket disconnected")
     except Exception as e:
         # Unexpected error - try to notify client
         try:

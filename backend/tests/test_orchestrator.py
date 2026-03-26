@@ -25,11 +25,11 @@ async def test_run_pipeline_success():
             "explanation": None
         }
         mock_variants.return_value = {
-            "simple": "Hi!",
-            "professional": "Good day.",
-            "colloquial": "Hey there!",
-            "slang": "Yo!",
-            "idiom": "Hello and welcome!"
+            "simple": {"text": "Hi!", "context": "easy"},
+            "professional": {"text": "Good day.", "context": "formal"},
+            "colloquial": {"text": "Hey there!", "context": "casual"},
+            "slang": {"text": "Yo!", "context": "slang"},
+            "idiom": {"text": "Hello and welcome!", "context": "expression"},
         }
 
         result = await run_pipeline(b"audio", "test.webm")
@@ -37,8 +37,11 @@ async def test_run_pipeline_success():
         assert isinstance(result, PipelineResult)
         assert result.transcript == "Hello world"
         assert result.corrected == "Hello, world!"
-        assert result.simple == "Hi!"
+        assert result.simple["text"] == "Hi!"
         assert result.total_latency_ms > 0
+
+        # Variants должен получить corrected текст, а не raw transcript
+        mock_variants.assert_called_once_with("Hello, world!")
 
 
 @pytest.mark.asyncio
@@ -72,4 +75,4 @@ async def test_run_pipeline_llm_failure_graceful():
 
         # Should degrade to raw transcript
         assert result.corrected == "test"
-        assert result.simple == "test"
+        assert result.simple["text"] == "test"
