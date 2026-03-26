@@ -28,11 +28,11 @@ MOCK_RECON_RESULT = {
 }
 
 MOCK_VARIANTS_RESULT = {
-    "simple": "simple",
-    "professional": "professional",
-    "colloquial": "colloquial",
-    "slang": "slang",
-    "idiom": "idiom",
+    "simple": {"text": "simple", "context": "easy"},
+    "professional": {"text": "professional", "context": "work"},
+    "colloquial": {"text": "colloquial", "context": "chat"},
+    "slang": {"text": "slang", "context": "casual"},
+    "idiom": {"text": "idiom", "context": "expression"},
 }
 
 MOCK_COMPANION_RESULT = {

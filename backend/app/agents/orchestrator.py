@@ -35,12 +35,12 @@ class PipelineResult:
     error_type: str
     explanation: Optional[str]
 
-    # Variants
-    simple: str
-    professional: str
-    colloquial: str
-    slang: str
-    idiom: str
+    # Variants (each is {"text": "...", "context": "..."})
+    simple: dict
+    professional: dict
+    colloquial: dict
+    slang: dict
+    idiom: dict
 
     # Timing
     total_latency_ms: float
@@ -80,7 +80,7 @@ async def run_pipeline(audio_bytes: bytes, filename: str = "audio.webm") -> Pipe
     try:
         variants_result = await get_variants(corrected)
     except Exception:
-        variants_result = {k: corrected for k in ["simple", "professional", "colloquial", "slang", "idiom"]}
+        variants_result = {k: {"text": corrected, "context": ""} for k in ["simple", "professional", "colloquial", "slang", "idiom"]}
 
     total_ms = (time.time() - start) * 1000
 
@@ -95,10 +95,10 @@ async def run_pipeline(audio_bytes: bytes, filename: str = "audio.webm") -> Pipe
         main_error=reconstruction_result.get("main_error"),
         error_type=reconstruction_result.get("error_type", "none"),
         explanation=reconstruction_result.get("explanation"),
-        simple=variants_result.get("simple", transcript),
-        professional=variants_result.get("professional", transcript),
-        colloquial=variants_result.get("colloquial", transcript),
-        slang=variants_result.get("slang", transcript),
-        idiom=variants_result.get("idiom", transcript),
+        simple=variants_result.get("simple", {"text": corrected, "context": ""}),
+        professional=variants_result.get("professional", {"text": corrected, "context": ""}),
+        colloquial=variants_result.get("colloquial", {"text": corrected, "context": ""}),
+        slang=variants_result.get("slang", {"text": corrected, "context": ""}),
+        idiom=variants_result.get("idiom", {"text": corrected, "context": ""}),
         total_latency_ms=round(total_ms, 1),
     )
