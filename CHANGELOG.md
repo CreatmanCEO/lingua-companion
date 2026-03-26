@@ -4,6 +4,44 @@
 
 ---
 
+## [2026-03-26] — Global Agent Fixes + Competitive Analysis (Session 6)
+
+### ✅ Конкурентный анализ
+- **docs**: `COMPETITIVE_ANALYSIS.md` — 881 строк, 8 конкурентов (Gliglish, Speak, Praktika, ELSA, TalkPal, Duolingo Max, Replika, Character.AI)
+- **docs**: Промпты конкурентов (Duolingo leak), open-source проекты, UX flows, unit economics
+- **insight**: Implicit recasting (70%) + sandwich method — лучшая стратегия коррекции для A2-B1
+- **insight**: Code-switching is NORMAL — не запрещать, а принимать
+
+### ✅ Pipeline Fix [CRITICAL]
+- **fix**: `get_variants()` теперь получает `corrected` текст вместо сырого RU/EN transcript
+- **arch**: Audio path приведён к тому же порядку что и text path: Reconstruction → parallel(Variants, Companion)
+
+### ✅ Промпты агентов — переписаны на основе исследования
+- **feat**: Companion: implicit recasting, sandwich method, scaffolding, conversation repair
+- **feat**: Companion: code-switching awareness ("This is NORMAL"), max 2 corrections/turn
+- **feat**: Morgan: может давать подсказки на русском для A2-B1
+- **feat**: Alex: professional но не only-IT, адаптируется к теме
+- **feat**: Sam: contractions, filler words, casual connectors
+- **feat**: Reconstruction: 3 few-shot примера, поле `changes` для git-diff, retry + validation
+- **feat**: Phrase Variants: context/subtitles "когда использовать", новый формат `{text, context}`
+
+### ✅ Надёжность
+- **feat**: Degraded mode — падение одного агента не ломает pipeline
+- **feat**: Logging во всех агентах (замена print → logging)
+- **feat**: LLM retry (`num_retries=2`) во всех агентах
+- **feat**: Prompt injection protection во всех промптах
+- **feat**: Rate limiting (15 msg/min) + блокировка параллельных запросов
+- **feat**: Валидация ответов LLM (required fields + defaults)
+- **fix**: MIME mapping: добавлен `webm`, default fallback `audio/webm`
+- **fix**: Убраны неиспользуемые импорты (`json` в stt.py, `asyncio` в orchestrator.py)
+
+### 📊 Тесты
+- Backend: **34/34 passed** (было 18, +16 новых)
+- Новые файлы: `test_reconstruction.py` (4), `test_phrase_variants.py` (4)
+- Новые тесты: degraded mode (3), rate limiting (2), prompt (3), pipeline (1)
+
+---
+
 ## [2026-03-25] — Companion Agent + Code Review Fixes (Session 5)
 
 ### ✅ Companion Agent — реальные LLM ответы
