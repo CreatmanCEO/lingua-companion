@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import time
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from starlette.websockets import WebSocketState
@@ -20,6 +21,21 @@ MAX_AUDIO_SIZE = 1 * 1024 * 1024
 
 # Максимальное количество сообщений в истории сессии
 MAX_HISTORY_MESSAGES = 20
+
+# Rate limiting: максимум сообщений в минуту на сессию
+MAX_MESSAGES_PER_MINUTE = 15
+
+
+def _check_rate_limit(session: dict) -> bool:
+    """Check if session exceeds rate limit. Returns True if blocked."""
+    now = time.time()
+    timestamps = session["message_timestamps"]
+    # Remove timestamps older than 60 seconds
+    session["message_timestamps"] = [t for t in timestamps if now - t < 60]
+    if len(session["message_timestamps"]) >= MAX_MESSAGES_PER_MINUTE:
+        return True
+    session["message_timestamps"].append(now)
+    return False
 
 
 async def send_event(ws: WebSocket, event_type: str, data: dict) -> None:
@@ -169,11 +185,13 @@ async def websocket_session(websocket: WebSocket):
     await websocket.accept()
     logger.info("WebSocket connected")
 
-    # Состояние сессии: companion, scenario, history
+    # Состояние сессии: companion, scenario, history, processing, rate limiting
     session: dict = {
         "companion": "Alex",
         "scenario": None,
         "history": [],
+        "processing": False,
+        "message_timestamps": [],
     }
 
     try:
@@ -196,9 +214,25 @@ async def websocket_session(websocket: WebSocket):
                         continue
 
                     elif msg_type == "text_message":
+                        # Concurrent processing check
+                        if session["processing"]:
+                            await send_event(websocket, "error", {
+                                "message": "Already processing a request",
+                            })
+                            continue
+                        # Rate limit check
+                        if _check_rate_limit(session):
+                            await send_event(websocket, "error", {
+                                "message": "Rate limit exceeded",
+                            })
+                            continue
                         # Текстовое сообщение -- без STT
                         text = data.get("text", "")
-                        await process_text(websocket, text, session)
+                        session["processing"] = True
+                        try:
+                            await process_text(websocket, text, session)
+                        finally:
+                            session["processing"] = False
                         continue
 
                 except json.JSONDecodeError:
@@ -210,6 +244,19 @@ async def websocket_session(websocket: WebSocket):
 
             # Обработка бинарных аудио-сообщений (существующая логика)
             if "bytes" in message:
+                # Concurrent processing check
+                if session["processing"]:
+                    await send_event(websocket, "error", {
+                        "message": "Already processing a request",
+                    })
+                    continue
+                # Rate limit check
+                if _check_rate_limit(session):
+                    await send_event(websocket, "error", {
+                        "message": "Rate limit exceeded",
+                    })
+                    continue
+
                 audio_bytes = message["bytes"]
                 logger.info("Received audio: %d bytes", len(audio_bytes))
 
@@ -224,10 +271,12 @@ async def websocket_session(websocket: WebSocket):
                     continue
 
                 # 2. STT
+                session["processing"] = True
                 try:
                     stt_result = await transcribe(audio_bytes, "audio.bin")
                     await send_event(websocket, "stt_result", stt_result)
                 except Exception as e:
+                    session["processing"] = False
                     await send_event(
                         websocket, "error",
                         {"message": f"STT failed: {str(e)}"},
@@ -236,6 +285,7 @@ async def websocket_session(websocket: WebSocket):
 
                 transcript = stt_result.get("text", "")
                 if not transcript.strip():
+                    session["processing"] = False
                     await send_event(
                         websocket, "error", {"message": "Empty transcript"}
                     )
@@ -295,6 +345,8 @@ async def websocket_session(websocket: WebSocket):
                         websocket, "error",
                         {"message": f"Processing failed: {str(e)}"},
                     )
+                finally:
+                    session["processing"] = False
 
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected")
