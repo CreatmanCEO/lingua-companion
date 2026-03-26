@@ -40,6 +40,9 @@ async def test_run_pipeline_success():
         assert result.simple == "Hi!"
         assert result.total_latency_ms > 0
 
+        # Variants должен получить corrected текст, а не raw transcript
+        mock_variants.assert_called_once_with("Hello, world!")
+
 
 @pytest.mark.asyncio
 async def test_run_pipeline_empty_transcript():

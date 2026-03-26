@@ -117,6 +117,9 @@ def test_websocket_full_pipeline(test_client):
             assert companion_event["text"] == "That sounds interesting!"
             assert companion_event["companion"] == "Alex"
 
+            # Variants должен получить corrected текст, а не raw transcript
+            mock_variants.assert_called_once_with("test corrected")
+
 
 def test_websocket_stt_exception(test_client):
     """STT exception returns error event."""

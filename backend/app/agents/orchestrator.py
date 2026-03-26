@@ -63,15 +63,10 @@ async def run_pipeline(audio_bytes: bytes, filename: str = "audio.webm") -> Pipe
     if not transcript.strip():
         raise ValueError("Empty transcript from STT")
 
-    # 2. Parallel processing
-    reconstruction_result, variants_result = await asyncio.gather(
-        reconstruct(transcript),
-        get_variants(transcript),
-        return_exceptions=True
-    )
-
-    # Handle exceptions gracefully
-    if isinstance(reconstruction_result, Exception):
+    # 2. Reconstruction first, then variants with corrected text
+    try:
+        reconstruction_result = await reconstruct(transcript)
+    except Exception:
         reconstruction_result = {
             "corrected": transcript,
             "original_intent": transcript,
@@ -80,8 +75,12 @@ async def run_pipeline(audio_bytes: bytes, filename: str = "audio.webm") -> Pipe
             "explanation": None,
         }
 
-    if isinstance(variants_result, Exception):
-        variants_result = {k: transcript for k in ["simple", "professional", "colloquial", "slang", "idiom"]}
+    corrected = reconstruction_result.get("corrected", transcript)
+
+    try:
+        variants_result = await get_variants(corrected)
+    except Exception:
+        variants_result = {k: corrected for k in ["simple", "professional", "colloquial", "slang", "idiom"]}
 
     total_ms = (time.time() - start) * 1000
 

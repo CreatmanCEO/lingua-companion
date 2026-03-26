@@ -216,23 +216,25 @@ async def websocket_session(websocket: WebSocket):
                     )
                     continue
 
-                # 3. Reconstruction + Variants + Companion
-                # Стратегия: reconstruction и variants стартуют параллельно.
-                # Когда reconstruction готов -- запускаем companion.
+                # 3. Reconstruction -> parallel(Variants, Companion)
+                # Стратегия: сначала reconstruction, потом variants с corrected текстом.
                 # Variants и companion работают параллельно.
                 tasks = {}
                 try:
                     recon_task = asyncio.create_task(
                         reconstruct(transcript), name="reconstruction"
                     )
-                    variants_task = asyncio.create_task(
-                        get_variants(transcript), name="variants"
-                    )
                     tasks["reconstruction"] = recon_task
-                    tasks["variants"] = variants_task
 
                     # Ждём reconstruction первым
                     reconstruction_result = await recon_task
+                    corrected = reconstruction_result.get("corrected", transcript)
+
+                    # Variants получает corrected текст (не raw transcript)
+                    variants_task = asyncio.create_task(
+                        get_variants(corrected), name="variants"
+                    )
+                    tasks["variants"] = variants_task
 
                     # Запускаем companion + ждём variants
                     await run_companion_and_variants(
