@@ -139,6 +139,30 @@ async def test_generate_response_with_history(mock_llm_response):
 
 
 @pytest.mark.asyncio
+async def test_companion_prompt_contains_recasting():
+    """Системный промпт содержит стратегию implicit recasting."""
+    from app.agents.companion import COMPANION_PROMPTS
+    for name, prompt in COMPANION_PROMPTS.items():
+        assert "recasting" in prompt.lower(), f"{name} prompt missing recasting strategy"
+        assert "sandwich" in prompt.lower(), f"{name} prompt missing sandwich method"
+        assert "scaffolding" in prompt.lower() or "scaffold" in prompt.lower(), \
+            f"{name} prompt missing scaffolding"
+
+
+@pytest.mark.asyncio
+async def test_companion_max_tokens_increased(mock_llm_response):
+    """max_tokens должен быть >= 400."""
+    with patch("app.agents.companion.litellm.acompletion", new_callable=AsyncMock) as mock_llm:
+        mock_llm.return_value = mock_llm_response("Test response")
+
+        from app.agents.companion import generate_response
+        await generate_response("Hello")
+
+        call_kwargs = mock_llm.call_args.kwargs
+        assert call_kwargs["max_tokens"] >= 400
+
+
+@pytest.mark.asyncio
 async def test_generate_response_llm_failure(mock_llm_response):
     """При ошибке LLM возвращается fallback ответ."""
     with patch("app.agents.companion.litellm.acompletion", new_callable=AsyncMock) as mock_llm:
