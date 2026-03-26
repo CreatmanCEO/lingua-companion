@@ -9,8 +9,8 @@ logger = logging.getLogger(__name__)
 
 from app.agents.stt import transcribe
 from app.agents.reconstruction import reconstruct
-from app.agents.phrase_variants import get_variants
-from app.agents.companion import generate_response
+from app.agents.phrase_variants import get_variants, REQUIRED_STYLES
+from app.agents.companion import generate_response, _FALLBACK_RESPONSE
 
 
 router = APIRouter()
@@ -61,8 +61,13 @@ async def run_companion_and_variants(
     if not variants_task.done():
         remaining.add(variants_task)
     else:
-        # Variants уже готов -- отправляем
-        await send_event(websocket, "variants_result", variants_task.result())
+        # Variants уже готов -- отправляем (с degraded handling)
+        try:
+            await send_event(websocket, "variants_result", variants_task.result())
+        except Exception:
+            logger.error("Variants task failed (already done)", exc_info=True)
+            fallback_variants = {k: {"text": corrected, "context": ""} for k in REQUIRED_STYLES}
+            await send_event(websocket, "variants_result", {**fallback_variants, "degraded": True})
     remaining.add(companion_task)
 
     task_to_event = {
@@ -77,12 +82,27 @@ async def run_companion_and_variants(
         for task in done:
             event_type = task_to_event.get(task)
             if event_type:
-                await send_event(websocket, event_type, task.result())
+                try:
+                    await send_event(websocket, event_type, task.result())
+                except Exception:
+                    logger.error("Task %s failed in degraded mode", event_type, exc_info=True)
+                    if event_type == "variants_result":
+                        fallback = {k: {"text": corrected, "context": ""} for k in REQUIRED_STYLES}
+                        await send_event(websocket, event_type, {**fallback, "degraded": True})
+                    elif event_type == "companion_response":
+                        await send_event(websocket, event_type, {
+                            "text": _FALLBACK_RESPONSE,
+                            "companion": session.get("companion", "Alex"),
+                            "degraded": True,
+                        })
 
     # Обновляем историю сессии
     history = session.setdefault("history", [])
     history.append({"role": "user", "content": corrected})
-    companion_result = companion_task.result()
+    try:
+        companion_result = companion_task.result()
+    except Exception:
+        companion_result = {"text": _FALLBACK_RESPONSE, "companion": session.get("companion", "Alex")}
     history.append({
         "role": "assistant",
         "content": companion_result.get("text", ""),
@@ -221,26 +241,43 @@ async def websocket_session(websocket: WebSocket):
                     )
                     continue
 
+                # Send processing_started before pipeline
+                await send_event(websocket, "processing_started", {
+                    "transcript": transcript,
+                })
+
                 # 3. Reconstruction -> parallel(Variants, Companion)
-                # Стратегия: сначала reconstruction, потом variants с corrected текстом.
-                # Variants и companion работают параллельно.
+                # Degraded mode: each stage fails independently
                 tasks = {}
+
+                # Reconstruction with degraded fallback
                 try:
                     recon_task = asyncio.create_task(
                         reconstruct(transcript), name="reconstruction"
                     )
                     tasks["reconstruction"] = recon_task
-
-                    # Ждём reconstruction первым
                     reconstruction_result = await recon_task
-                    corrected = reconstruction_result.get("corrected", transcript)
+                except Exception:
+                    logger.error("Reconstruction failed, using raw transcript", exc_info=True)
+                    reconstruction_result = {
+                        "corrected": transcript,
+                        "original_intent": transcript,
+                        "main_error": None,
+                        "error_type": "none",
+                        "explanation": None,
+                        "changes": [],
+                        "degraded": True,
+                    }
 
-                    # Variants получает corrected текст (не raw transcript)
-                    variants_task = asyncio.create_task(
-                        get_variants(corrected), name="variants"
-                    )
-                    tasks["variants"] = variants_task
+                corrected = reconstruction_result.get("corrected", transcript)
 
+                # Variants with corrected text
+                variants_task = asyncio.create_task(
+                    get_variants(corrected), name="variants"
+                )
+                tasks["variants"] = variants_task
+
+                try:
                     # Запускаем companion + ждём variants
                     await run_companion_and_variants(
                         websocket,
@@ -249,7 +286,6 @@ async def websocket_session(websocket: WebSocket):
                         variants_task,
                         session,
                     )
-
                 except Exception as e:
                     logger.error("Pipeline failed", exc_info=True)
                     for task in tasks.values():

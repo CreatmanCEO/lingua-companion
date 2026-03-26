@@ -101,11 +101,12 @@ def test_websocket_full_pipeline(test_client):
             websocket.send_bytes(b"fake_audio")
 
             events = []
-            for _ in range(4):  # Expect 4 events
+            for _ in range(5):  # Expect 5 events (stt + processing_started + recon + variants + companion)
                 events.append(websocket.receive_json())
 
             event_types = {e["type"] for e in events}
             assert "stt_result" in event_types
+            assert "processing_started" in event_types
             assert "reconstruction_result" in event_types
             assert "variants_result" in event_types
             assert "companion_response" in event_types
@@ -188,7 +189,7 @@ def test_websocket_session_config(test_client):
             websocket.send_bytes(b"fake_audio")
 
             events = []
-            for _ in range(4):
+            for _ in range(5):  # stt + processing_started + recon + variants + companion
                 events.append(websocket.receive_json())
 
             # Проверяем что companion agent был вызван с Morgan
@@ -238,3 +239,82 @@ def test_websocket_text_message_empty(test_client):
         error_response = websocket.receive_json()
         assert error_response["type"] == "error"
         assert "Empty text" in error_response["message"]
+
+
+def test_websocket_reconstruction_failure_degrades(test_client):
+    """При ошибке reconstruction pipeline продолжает с raw transcript."""
+    p1, p2, p3, p4 = _patch_all_agents()
+    with p1 as mock_stt, p2 as mock_recon, \
+         p3 as mock_variants, p4 as mock_companion:
+
+        mock_stt.return_value = MOCK_STT_RESULT
+        mock_recon.side_effect = Exception("Reconstruction failed")
+        mock_variants.return_value = MOCK_VARIANTS_RESULT
+        mock_companion.return_value = MOCK_COMPANION_RESULT
+
+        with test_client.websocket_connect("/ws/session") as websocket:
+            websocket.send_bytes(b"fake_audio")
+
+            events = []
+            for _ in range(5):  # stt + processing_started + recon(degraded) + variants + companion
+                events.append(websocket.receive_json())
+
+            event_types = {e["type"] for e in events}
+            assert "stt_result" in event_types
+            assert "reconstruction_result" in event_types
+
+            # Reconstruction result should be degraded
+            recon_event = next(e for e in events if e["type"] == "reconstruction_result")
+            assert recon_event.get("degraded") is True
+            assert recon_event["corrected"] == "test transcript"  # raw transcript used
+
+
+def test_websocket_companion_failure_degrades(test_client):
+    """При ошибке companion pipeline отправляет fallback ответ."""
+    p1, p2, p3, p4 = _patch_all_agents()
+    with p1 as mock_stt, p2 as mock_recon, \
+         p3 as mock_variants, p4 as mock_companion:
+
+        mock_stt.return_value = MOCK_STT_RESULT
+        mock_recon.return_value = MOCK_RECON_RESULT
+        mock_variants.return_value = MOCK_VARIANTS_RESULT
+        mock_companion.side_effect = Exception("Companion LLM failed")
+
+        with test_client.websocket_connect("/ws/session") as websocket:
+            websocket.send_bytes(b"fake_audio")
+
+            events = []
+            for _ in range(5):
+                events.append(websocket.receive_json())
+
+            event_types = {e["type"] for e in events}
+            assert "companion_response" in event_types
+
+            companion_event = next(e for e in events if e["type"] == "companion_response")
+            assert companion_event.get("degraded") is True
+            assert len(companion_event["text"]) > 0  # fallback text
+
+
+def test_websocket_variants_failure_degrades(test_client):
+    """При ошибке variants pipeline отправляет fallback варианты."""
+    p1, p2, p3, p4 = _patch_all_agents()
+    with p1 as mock_stt, p2 as mock_recon, \
+         p3 as mock_variants, p4 as mock_companion:
+
+        mock_stt.return_value = MOCK_STT_RESULT
+        mock_recon.return_value = MOCK_RECON_RESULT
+        mock_variants.side_effect = Exception("Variants LLM failed")
+        mock_companion.return_value = MOCK_COMPANION_RESULT
+
+        with test_client.websocket_connect("/ws/session") as websocket:
+            websocket.send_bytes(b"fake_audio")
+
+            events = []
+            for _ in range(5):
+                events.append(websocket.receive_json())
+
+            event_types = {e["type"] for e in events}
+            assert "variants_result" in event_types
+
+            variants_event = next(e for e in events if e["type"] == "variants_result")
+            assert variants_event.get("degraded") is True
