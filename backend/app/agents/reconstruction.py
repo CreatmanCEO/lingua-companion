@@ -12,8 +12,11 @@ Handles:
 - Vocabulary gaps: Russian words → English equivalents
 """
 import json
+import logging
 import litellm
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """You are an expert English grammar coach for Russian-speaking IT professionals.
 
@@ -68,7 +71,10 @@ async def reconstruct(transcript: str) -> dict:
     
     try:
         result = json.loads(raw)
+        logger.info("Reconstruction: input %d chars -> corrected %d chars",
+                     len(transcript), len(result.get("corrected", "")))
     except json.JSONDecodeError:
+        logger.warning("Reconstruction JSON parse failed, using fallback. Raw: %.100s", raw)
         result = {
             "corrected": transcript,
             "original_intent": transcript,
@@ -76,5 +82,5 @@ async def reconstruct(transcript: str) -> dict:
             "error_type": "none",
             "explanation": None,
         }
-    
+
     return result

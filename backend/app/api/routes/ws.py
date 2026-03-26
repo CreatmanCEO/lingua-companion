@@ -1,8 +1,11 @@
 import asyncio
 import json
+import logging
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from starlette.websockets import WebSocketState
+
+logger = logging.getLogger(__name__)
 
 from app.agents.stt import transcribe
 from app.agents.reconstruction import reconstruct
@@ -144,6 +147,7 @@ async def websocket_session(websocket: WebSocket):
     - text_message: {text}
     """
     await websocket.accept()
+    logger.info("WebSocket connected")
 
     # Состояние сессии: companion, scenario, history
     session: dict = {
@@ -187,6 +191,7 @@ async def websocket_session(websocket: WebSocket):
             # Обработка бинарных аудио-сообщений (существующая логика)
             if "bytes" in message:
                 audio_bytes = message["bytes"]
+                logger.info("Received audio: %d bytes", len(audio_bytes))
 
                 # Validate audio size (DoS protection)
                 if len(audio_bytes) > MAX_AUDIO_SIZE:
@@ -246,6 +251,7 @@ async def websocket_session(websocket: WebSocket):
                     )
 
                 except Exception as e:
+                    logger.error("Pipeline failed", exc_info=True)
                     for task in tasks.values():
                         if not task.done():
                             task.cancel()
@@ -255,7 +261,7 @@ async def websocket_session(websocket: WebSocket):
                     )
 
     except WebSocketDisconnect:
-        pass  # Normal disconnect
+        logger.info("WebSocket disconnected")
     except Exception as e:
         # Unexpected error - try to notify client
         try:

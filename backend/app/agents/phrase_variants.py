@@ -16,8 +16,11 @@ Variants:
 Runs PARALLEL to Companion Agent after STT completes.
 """
 import json
+import logging
 import litellm
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """You are an expert English language coach specializing in teaching 
 Russian-speaking IT professionals. 
@@ -74,8 +77,9 @@ async def get_variants(sentence: str) -> dict:
     
     try:
         variants = json.loads(raw)
+        logger.info("Variants generated for: %.100s", sentence)
     except json.JSONDecodeError:
-        # Fallback: return original sentence in all slots
+        logger.warning("Variants JSON parse failed, using fallback. Raw: %.100s", raw)
         variants = {k: sentence for k in ["simple", "professional", "colloquial", "slang", "idiom"]}
-    
+
     return variants

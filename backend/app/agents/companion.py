@@ -10,8 +10,11 @@ Companion Agent -- LinguaCompanion
 
 Вызывается ПОСЛЕ Reconstruction Agent -- получает уже исправленный текст.
 """
+import logging
 import litellm
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 # Максимальное количество сообщений в истории (скользящее окно)
 MAX_HISTORY_MESSAGES = 20
@@ -121,8 +124,9 @@ async def generate_response(
         )
 
         text = response.choices[0].message.content.strip()
+        logger.info("Companion %s response: %d chars", companion, len(text))
     except Exception:
-        # Fallback: не ломаем пайплайн при ошибке LLM
+        logger.error("Companion %s LLM failed, using fallback", companion, exc_info=True)
         text = _FALLBACK_RESPONSE
 
     return {"text": text, "companion": companion}

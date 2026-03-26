@@ -9,11 +9,14 @@ Spike results (2026-03-10):
 Groq is faster but loses one language in genuinely mixed speech.
 Deepgram language=multi correctly detects all RU+EN combinations.
 """
+import logging
 import time
 import httpx
 import json
 from groq import AsyncGroq
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 # ── Deepgram (Primary) ────────────────────────────────────────────────
@@ -49,8 +52,10 @@ async def transcribe_deepgram(audio_bytes: bytes, mime_type: str = "audio/mp4") 
     latency_ms = (time.time() - start) * 1000
     alt = data["results"]["channels"][0]["alternatives"][0]
 
+    text = alt.get("transcript", "").strip()
+    logger.info("Deepgram transcription: %.1fms, %d chars", latency_ms, len(text))
     return {
-        "text": alt.get("transcript", "").strip(),
+        "text": text,
         "language": "multi",
         "provider": "deepgram",
         "model": "nova-3",
@@ -84,8 +89,10 @@ async def transcribe_groq(audio_bytes: bytes, filename: str = "audio.m4a") -> di
     )
     latency_ms = (time.time() - start) * 1000
 
+    text = result.text.strip()
+    logger.info("Groq transcription: %.1fms, %d chars", latency_ms, len(text))
     return {
-        "text": result.text.strip(),
+        "text": text,
         "language": result.language,
         "provider": "groq",
         "model": settings.WHISPER_MODEL,
@@ -123,7 +130,7 @@ async def transcribe(audio_bytes: bytes, filename: str = "audio.m4a") -> dict:
             result["fallback"] = False
             return result
         except Exception as e:
-            print(f"[STT] Deepgram failed ({e}), falling back to Groq...")
+            logger.warning("Deepgram failed, falling back to Groq", exc_info=True)
 
     # Groq fallback
     result = await transcribe_groq(audio_bytes, filename)
