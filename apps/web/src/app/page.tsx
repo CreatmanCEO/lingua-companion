@@ -54,6 +54,9 @@ export default function HomePage() {
     setIsAnalysing,
     clearAnalysis,
     setInputMode,
+    streamingCompanionText,
+    appendStreamingText,
+    clearStreamingText,
     activeScenario,
     startScenario,
     endScenario,
@@ -88,9 +91,14 @@ export default function HomePage() {
       setVariants(result);
       setIsAnalysing(false);
     },
-    onCompanionResponse: (result) => {
-      // Companion ответил -- убираем typing и добавляем сообщение
+    onCompanionToken: (event) => {
+      // Streaming token — показываем typewriter
       setIsTyping(false);
+      appendStreamingText(event.delta);
+    },
+    onCompanionResponse: (result) => {
+      // Streaming done — заменяем streaming text на полное сообщение
+      clearStreamingText();
       addMessage({
         sender: "companion",
         contentType: "text",
@@ -101,6 +109,7 @@ export default function HomePage() {
       console.error("WebSocket error:", error);
       setIsAnalysing(false);
       setIsTyping(false);
+      clearStreamingText();
     },
   });
 
@@ -321,6 +330,7 @@ export default function HomePage() {
           currentVariants={currentVariants}
           isAnalysing={isAnalysing}
           isTyping={isTyping}
+          streamingText={streamingCompanionText}
           onTranscribe={handleTranscribe}
           onAnalyse={handleAnalyse}
           onSaveVariant={handleSaveVariant}

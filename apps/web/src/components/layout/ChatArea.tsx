@@ -18,6 +18,7 @@ interface ChatAreaProps {
   currentVariants: VariantsResult | null;
   isAnalysing: boolean;
   isTyping?: boolean;
+  streamingText?: string;
   onTranscribe?: (messageId: string) => void;
   onAnalyse?: (messageId: string) => void;
   onSaveVariant?: (style: string, phrase: string) => void;
@@ -93,6 +94,7 @@ export const ChatArea = forwardRef<HTMLDivElement, ChatAreaProps>(function ChatA
   currentVariants,
   isAnalysing,
   isTyping = false,
+  streamingText = "",
   onTranscribe,
   onAnalyse,
   onSaveVariant,
@@ -107,10 +109,10 @@ export const ChatArea = forwardRef<HTMLDivElement, ChatAreaProps>(function ChatA
     [messages]
   );
 
-  // Автоскролл при новых сообщениях
+  // Автоскролл при новых сообщениях и streaming
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, currentReconstruction, currentVariants, isAnalysing]);
+  }, [messages, currentReconstruction, currentVariants, isAnalysing, streamingText]);
 
   return (
     <div
@@ -201,8 +203,23 @@ export const ChatArea = forwardRef<HTMLDivElement, ChatAreaProps>(function ChatA
         );
       })}
 
+      {/* Streaming companion bubble */}
+      {streamingText && (
+        <CompanionBubble
+          message={{
+            id: "streaming",
+            sender: "companion",
+            contentType: "text",
+            text: streamingText,
+            timestamp: Date.now(),
+          }}
+          companionName={companionName}
+          isStreaming
+        />
+      )}
+
       {/* AI thinking indicator */}
-      {(isAnalysing || isTyping) && (
+      {(isAnalysing || isTyping) && !streamingText && (
         <AIThinking companionName={companionName} />
       )}
 

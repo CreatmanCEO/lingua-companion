@@ -11,6 +11,7 @@ import { playTts, stopTts } from "@/lib/edgeTts";
 interface CompanionBubbleProps {
   message: Message;
   companionName: CompanionName;
+  isStreaming?: boolean;
   onListen?: (text: string) => void;
 }
 
@@ -137,6 +138,7 @@ function RichCard({
 export function CompanionBubble({
   message,
   companionName: _companionName,
+  isStreaming = false,
   onListen,
 }: CompanionBubbleProps) {
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -192,6 +194,9 @@ export function CompanionBubble({
           {/* Text */}
           <p className="text-primary text-size-base leading-[1.55]">
             {message.text}
+            {isStreaming && (
+              <span className="inline-block w-[2px] h-[1em] bg-accent ml-0.5 animate-pulse align-middle" />
+            )}
           </p>
 
           {/* Rich card (demo - показываем для первого сообщения) */}
@@ -206,12 +211,14 @@ export function CompanionBubble({
             />
           )}
 
-          {/* Actions */}
-          <div className="flex gap-[6px] mt-[10px] flex-wrap">
-            <ActionPill onClick={handleListen} isPlaying={isSpeaking}>
-              {isSpeaking ? "⏸ Playing" : "▶ Listen"}
-            </ActionPill>
-          </div>
+          {/* Actions — hidden during streaming */}
+          {!isStreaming && (
+            <div className="flex gap-[6px] mt-[10px] flex-wrap">
+              <ActionPill onClick={handleListen} isPlaying={isSpeaking}>
+                {isSpeaking ? "⏸ Playing" : "▶ Listen"}
+              </ActionPill>
+            </div>
+          )}
         </div>
 
         {/* Timestamp */}

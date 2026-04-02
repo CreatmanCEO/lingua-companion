@@ -60,6 +60,7 @@ type WebSocketEventType =
   | "stt_result"
   | "reconstruction_result"
   | "variants_result"
+  | "companion_token"
   | "companion_response"
   | "error";
 
@@ -71,10 +72,22 @@ type ConnectionState = "idle" | "connecting" | "connected" | "processing";
 /**
  * Callbacks для обработки событий
  */
+/**
+ * Companion token event (streaming)
+ */
+export interface CompanionTokenEvent {
+  delta: string;
+  companion: string;
+}
+
+/**
+ * Callbacks для обработки событий
+ */
 interface VoiceSessionCallbacks {
   onSttResult?: (result: SttResult) => void;
   onReconstructionResult?: (result: ReconstructionResult) => void;
   onVariantsResult?: (result: VariantsResult) => void;
+  onCompanionToken?: (event: CompanionTokenEvent) => void;
   onCompanionResponse?: (result: CompanionResult) => void;
   onError?: (error: string) => void;
 }
@@ -238,6 +251,10 @@ export function useVoiceSession(
             pendingResultsRef.current.variants = true;
             callbacksRef.current.onVariantsResult?.(data as VariantsResult);
             checkAllPendingDone();
+            break;
+
+          case "companion_token":
+            callbacksRef.current.onCompanionToken?.(data as CompanionTokenEvent);
             break;
 
           case "companion_response":

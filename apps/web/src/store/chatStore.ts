@@ -146,6 +146,9 @@ interface ChatState {
   // Input mode
   inputMode: "text" | "voice";
 
+  // Streaming
+  streamingCompanionText: string;
+
   // Scenario
   activeScenario: ScenarioContext | null;
 
@@ -159,6 +162,8 @@ interface ChatState {
   clearAnalysis: () => void;
   setActiveCompanion: (name: CompanionName) => void;
   setInputMode: (mode: "text" | "voice") => void;
+  appendStreamingText: (delta: string) => void;
+  clearStreamingText: () => void;
   clearMessages: () => void;
   startScenario: (scenarioId: string) => void;
   endScenario: () => void;
@@ -188,6 +193,7 @@ export const useChatStore = create<ChatState>((set) => ({
   isAnalysing: false,
   activeCompanion: "Alex",
   inputMode: "voice",
+  streamingCompanionText: "",
   activeScenario: null,
 
   // Actions
@@ -243,6 +249,12 @@ export const useChatStore = create<ChatState>((set) => ({
 
   setInputMode: (mode) =>
     set({ inputMode: mode }),
+
+  appendStreamingText: (delta) =>
+    set((state) => ({ streamingCompanionText: state.streamingCompanionText + delta })),
+
+  clearStreamingText: () =>
+    set({ streamingCompanionText: "" }),
 
   clearMessages: () =>
     set({ messages: [] }),
