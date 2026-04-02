@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Header } from "@/components/layout/Header";
 import { TabBar, type TabType } from "@/components/layout/TabBar";
 import { ChatArea } from "@/components/layout/ChatArea";
+import { useScrollDirection } from "@/hooks/useScrollDirection";
 import { ScenarioScreen } from "@/components/layout/ScenarioScreen";
 import { VoiceBar, type InputMode } from "@/components/VoiceBar";
 import { useChatStore } from "@/store/chatStore";
@@ -27,6 +28,9 @@ import {
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<TabType>("free-chat");
   const [isTyping, setIsTyping] = useState(false);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const scrollDirection = useScrollDirection(chatScrollRef);
+  const headerHidden = scrollDirection === "down";
 
   // Zustand store
   const {
@@ -270,30 +274,36 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col h-screen bg-void">
-      {/* Header */}
-      <Header
-        companionName={activeCompanion}
-        isOnline={isConnected}
-        isTyping={isTyping}
-        onSettingsClick={() => console.log("Settings clicked")}
-        scenarioName={activeScenario?.name}
-        onEndScenario={() => {
-          endScenario();
-          clearAnalysis();
-          addMessage({
-            sender: "companion",
-            contentType: "text",
-            text: getWelcomeMessage(activeCompanion),
-          });
-        }}
-      />
+      {/* Header + TabBar — auto-hide on scroll down */}
+      <div
+        className="flex-shrink-0 transition-transform duration-300 will-change-transform"
+        style={{ transform: headerHidden ? "translateY(-100%)" : "translateY(0)" }}
+      >
+        <Header
+          companionName={activeCompanion}
+          isOnline={isConnected}
+          isTyping={isTyping}
+          onSettingsClick={() => console.log("Settings clicked")}
+          scenarioName={activeScenario?.name}
+          onEndScenario={() => {
+            endScenario();
+            clearAnalysis();
+            addMessage({
+              sender: "companion",
+              contentType: "text",
+              text: getWelcomeMessage(activeCompanion),
+            });
+          }}
+        />
 
-      {/* Tab Bar (внутри header) */}
-      <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
+        {/* Tab Bar */}
+        <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
+      </div>
 
       {/* Main content area */}
       {activeTab === "free-chat" ? (
         <ChatArea
+          ref={chatScrollRef}
           messages={messages}
           companionName={activeCompanion}
           currentReconstruction={currentReconstruction}

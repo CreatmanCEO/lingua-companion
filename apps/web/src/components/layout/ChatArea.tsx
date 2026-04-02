@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useMemo } from "react";
+import React, { useEffect, useRef, useMemo, forwardRef } from "react";
 import { UserBubble } from "@/components/UserBubble";
 import { CompanionBubble } from "@/components/CompanionBubble";
 import { ReconstructionBlock } from "@/components/ReconstructionBlock";
@@ -86,7 +86,7 @@ function AIThinking({ companionName }: { companionName: string }) {
  * - Reconstruction + Variants после user message
  * - AI thinking indicator
  */
-export function ChatArea({
+export const ChatArea = forwardRef<HTMLDivElement, ChatAreaProps>(function ChatArea({
   messages,
   companionName,
   currentReconstruction,
@@ -96,8 +96,9 @@ export function ChatArea({
   onTranscribe,
   onAnalyse,
   onSaveVariant,
-}: ChatAreaProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
+}, ref) {
+  const internalRef = useRef<HTMLDivElement>(null);
+  const scrollRef = (ref as React.RefObject<HTMLDivElement | null>) || internalRef;
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Индекс последнего user message (для показа Reconstruction/Variants)
@@ -209,4 +210,4 @@ export function ChatArea({
       <div ref={bottomRef} />
     </div>
   );
-}
+});
