@@ -87,6 +87,8 @@ function AIThinking({ companionName }: { companionName: string }) {
  * - Reconstruction + Variants после user message
  * - AI thinking indicator
  */
+const STREAMING_TIMESTAMP = 0; // Static value to avoid Date.now() during render
+
 export const ChatArea = forwardRef<HTMLDivElement, ChatAreaProps>(function ChatArea({
   messages,
   companionName,
@@ -211,7 +213,7 @@ export const ChatArea = forwardRef<HTMLDivElement, ChatAreaProps>(function ChatA
             sender: "companion",
             contentType: "text",
             text: streamingText,
-            timestamp: Date.now(),
+            timestamp: STREAMING_TIMESTAMP,
           }}
           companionName={companionName}
           isStreaming

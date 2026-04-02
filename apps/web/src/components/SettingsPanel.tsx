@@ -7,7 +7,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { useSettingsStore, type TopicPreference, type Level, type Theme } from "@/store/settingsStore";
+import { useSettingsStore, type TopicPreference, type Level } from "@/store/settingsStore";
 import type { CompanionName } from "@/store/chatStore";
 import type { VoiceKey } from "@/lib/edgeTts";
 import { playTts } from "@/lib/edgeTts";
