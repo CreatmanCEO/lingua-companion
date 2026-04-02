@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Header } from "@/components/layout/Header";
 import { TabBar, type TabType } from "@/components/layout/TabBar";
-import { CompanionBar } from "@/components/layout/CompanionBar";
 import { ChatArea } from "@/components/layout/ChatArea";
 import { ScenarioScreen } from "@/components/layout/ScenarioScreen";
 import { VoiceBar, type InputMode } from "@/components/VoiceBar";
@@ -20,9 +19,8 @@ import {
  * Главная страница приложения
  *
  * Layout из прототипа (mobile-first, 390x844 base):
- * - Header (с logo mark, app name, theme toggle, menu)
+ * - Header (compact: logo, companion name + status, settings gear)
  * - TabBar (Free Chat / Scenario)
- * - CompanionBar (avatar, name, status, timer) - только для Free Chat
  * - ChatArea / ScenarioScreen (flex-grow, scroll)
  * - VoiceBar (4 состояния: text, voice, recording, processing)
  */
@@ -273,31 +271,25 @@ export default function HomePage() {
   return (
     <div className="flex flex-col h-screen bg-void">
       {/* Header */}
-      <Header onMenuClick={() => console.log("Menu clicked")} />
+      <Header
+        companionName={activeCompanion}
+        isOnline={isConnected}
+        isTyping={isTyping}
+        onSettingsClick={() => console.log("Settings clicked")}
+        scenarioName={activeScenario?.name}
+        onEndScenario={() => {
+          endScenario();
+          clearAnalysis();
+          addMessage({
+            sender: "companion",
+            contentType: "text",
+            text: getWelcomeMessage(activeCompanion),
+          });
+        }}
+      />
 
       {/* Tab Bar (внутри header) */}
       <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
-
-      {/* Companion Bar - только для Free Chat */}
-      {activeTab === "free-chat" && (
-        <CompanionBar
-          companionName={activeCompanion}
-          companionStyle={activeScenario ? activeScenario.companionRole : "Professional"}
-          isTyping={isTyping}
-          isOnline={isConnected}
-          scenarioName={activeScenario?.name}
-          onEndScenario={() => {
-            endScenario();
-            // Показать Free Chat приветствие
-            clearAnalysis();
-            addMessage({
-              sender: "companion",
-              contentType: "text",
-              text: getWelcomeMessage(activeCompanion),
-            });
-          }}
-        />
-      )}
 
       {/* Main content area */}
       {activeTab === "free-chat" ? (
