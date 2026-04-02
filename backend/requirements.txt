@@ -17,6 +17,9 @@ pgvector==0.3.2
 litellm==1.48.0
 groq==0.11.0
 
+# TTS
+edge-tts==6.1.18
+
 # Embeddings (local)
 sentence-transformers==3.1.1
 

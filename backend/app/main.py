@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from app.core.config import settings
 from app.api.routes.ws import router as ws_router
+from app.api.routes.tts import router as tts_router
 
 
 @asynccontextmanager
@@ -33,6 +34,9 @@ app.add_middleware(
 
 # WebSocket routes
 app.include_router(ws_router)
+
+# REST routes
+app.include_router(tts_router)
 
 
 @app.get("/health")
