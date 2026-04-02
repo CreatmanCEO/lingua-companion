@@ -181,7 +181,7 @@ export function ChatArea({
               <>
                 {currentReconstruction && (
                   <ReconstructionBlock
-                    original={currentReconstruction.original_intent}
+                    original={message.text || currentReconstruction.original_intent}
                     corrected={currentReconstruction.corrected}
                     explanation={currentReconstruction.explanation}
                     errorType={currentReconstruction.error_type}

@@ -136,6 +136,9 @@ export default function HomePage() {
    */
   const handleSendText = useCallback(
     (text: string) => {
+      // Блокируем отправку если ещё обрабатывается предыдущее
+      if (isProcessing) return;
+
       clearAnalysis();
 
       addMessage({
@@ -161,7 +164,7 @@ export default function HomePage() {
         }, 1500);
       }
     },
-    [addMessage, clearAnalysis, isConnected, sendText, activeCompanion]
+    [addMessage, clearAnalysis, isConnected, isProcessing, sendText, activeCompanion]
   );
 
   /**
@@ -169,6 +172,8 @@ export default function HomePage() {
    */
   const handleSendAudio = useCallback(
     (blob: Blob) => {
+      if (isProcessing) return;
+
       clearAnalysis();
 
       addMessage({
@@ -196,7 +201,7 @@ export default function HomePage() {
         }, 2000);
       }
     },
-    [addMessage, clearAnalysis, isConnected, sendAudio, setIsAnalysing, activeCompanion]
+    [addMessage, clearAnalysis, isConnected, isProcessing, sendAudio, setIsAnalysing, activeCompanion]
   );
 
   /**
