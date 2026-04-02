@@ -12,6 +12,10 @@ from app.agents.stt import transcribe
 from app.agents.reconstruction import reconstruct
 from app.agents.phrase_variants import get_variants, REQUIRED_STYLES
 from app.agents.companion import generate_response, generate_response_stream, _FALLBACK_RESPONSE
+from app.agents.memory import (
+    search_memory, get_user_facts, store_memory,
+    extract_facts, upsert_fact, track_vocab_gap, USER_ID,
+)
 
 
 router = APIRouter()
@@ -44,10 +48,54 @@ async def send_event(ws: WebSocket, event_type: str, data: dict) -> None:
         await ws.send_json({"type": event_type, **data})
 
 
+async def _build_memory_context(user_id: str, query: str) -> str | None:
+    """READ: поиск по памяти + факты пользователя → строка контекста."""
+    try:
+        facts, memories = await asyncio.gather(
+            get_user_facts(user_id),
+            search_memory(user_id, query, top_k=5),
+            return_exceptions=True,
+        )
+
+        parts = []
+        if isinstance(facts, dict) and facts:
+            facts_str = ", ".join(f"{k}: {v}" for k, v in facts.items())
+            parts.append(f"Known facts: {facts_str}")
+
+        if isinstance(memories, list) and memories:
+            mem_texts = [m["text"] for m in memories[:3]]
+            parts.append("Related memories: " + " | ".join(mem_texts))
+
+        return "\n".join(parts) if parts else None
+
+    except Exception:
+        logger.error("Memory READ failed", exc_info=True)
+        return None
+
+
+async def _memory_write_behind(user_id: str, user_text: str, companion_text: str) -> None:
+    """WRITE (fire-and-forget): store memory, extract facts, track vocab."""
+    try:
+        # Store conversation exchange
+        await store_memory(user_id, f"User: {user_text}\nAssistant: {companion_text}", {
+            "type": "conversation",
+        })
+
+        # Extract facts from user message
+        facts = await extract_facts(user_text)
+        for key, value in facts.items():
+            if key and value:
+                await upsert_fact(user_id, key, str(value))
+
+    except Exception:
+        logger.error("Memory WRITE failed", exc_info=True)
+
+
 async def _stream_companion(
     websocket: WebSocket,
     corrected: str,
     session: dict,
+    memory_context: str | None = None,
 ) -> str:
     """Стримит companion токены через WS. Возвращает полный текст."""
     companion_name = session.get("companion", "Alex")
@@ -59,6 +107,7 @@ async def _stream_companion(
             companion=companion_name,
             history=session.get("history", []),
             scenario=session.get("scenario"),
+            memory_context=memory_context,
         ):
             if event["type"] == "token":
                 await send_event(websocket, "companion_token", {
@@ -98,11 +147,13 @@ async def run_companion_and_variants(
     await send_event(websocket, "reconstruction_result", reconstruction_result)
 
     corrected = reconstruction_result.get("corrected", transcript)
-    companion_name = session.get("companion", "Alex")
 
-    # Запускаем companion streaming как task
+    # Memory READ: search + facts → context for companion
+    memory_context = await _build_memory_context(USER_ID, corrected)
+
+    # Запускаем companion streaming как task (with memory context)
     companion_task = asyncio.create_task(
-        _stream_companion(websocket, corrected, session),
+        _stream_companion(websocket, corrected, session, memory_context=memory_context),
         name="companion_stream",
     )
 
@@ -133,6 +184,12 @@ async def run_companion_and_variants(
 
     if len(history) > MAX_HISTORY_MESSAGES:
         session["history"] = history[-MAX_HISTORY_MESSAGES:]
+
+    # Memory WRITE (fire-and-forget, non-blocking)
+    asyncio.create_task(
+        _memory_write_behind(USER_ID, corrected, companion_text),
+        name="memory_write",
+    )
 
 
 async def process_text(

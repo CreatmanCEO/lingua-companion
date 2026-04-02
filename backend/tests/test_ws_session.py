@@ -56,12 +56,14 @@ async def _mock_companion_stream_fail(*args, **kwargs):
 
 
 def _patch_all_agents():
-    """Контекстный менеджер для мока всех четырёх агентов."""
+    """Контекстный менеджер для мока всех агентов + memory."""
     return (
         patch("app.api.routes.ws.transcribe", new_callable=AsyncMock),
         patch("app.api.routes.ws.reconstruct", new_callable=AsyncMock),
         patch("app.api.routes.ws.get_variants", new_callable=AsyncMock),
         patch("app.api.routes.ws.generate_response_stream", side_effect=_mock_companion_stream),
+        patch("app.api.routes.ws._build_memory_context", new_callable=AsyncMock, return_value=None),
+        patch("app.api.routes.ws._memory_write_behind", new_callable=AsyncMock),
     )
 
 
@@ -102,9 +104,9 @@ def test_websocket_handles_empty_audio(test_client):
 
 def test_websocket_full_pipeline(test_client):
     """Full pipeline returns expected events (stt + recon + variants + companion_tokens + companion)."""
-    p1, p2, p3, p4 = _patch_all_agents()
+    p1, p2, p3, p4, p5, p6 = _patch_all_agents()
     with p1 as mock_stt, p2 as mock_recon, \
-         p3 as mock_variants, p4:
+         p3 as mock_variants, p4, p5, p6:
 
         mock_stt.return_value = MOCK_STT_RESULT
         mock_recon.return_value = MOCK_RECON_RESULT
@@ -186,8 +188,10 @@ def test_websocket_session_config(test_client):
     p2 = patch("app.api.routes.ws.reconstruct", new_callable=AsyncMock)
     p3 = patch("app.api.routes.ws.get_variants", new_callable=AsyncMock)
     p4 = patch("app.api.routes.ws.generate_response_stream", side_effect=_morgan_stream)
+    p5 = patch("app.api.routes.ws._build_memory_context", new_callable=AsyncMock, return_value=None)
+    p6 = patch("app.api.routes.ws._memory_write_behind", new_callable=AsyncMock)
 
-    with p1 as mock_stt, p2 as mock_recon, p3 as mock_variants, p4:
+    with p1 as mock_stt, p2 as mock_recon, p3 as mock_variants, p4, p5, p6:
         mock_stt.return_value = MOCK_STT_RESULT
         mock_recon.return_value = MOCK_RECON_RESULT
         mock_variants.return_value = MOCK_VARIANTS_RESULT
@@ -214,9 +218,9 @@ def test_websocket_session_config(test_client):
 
 def test_websocket_text_message(test_client):
     """text_message обрабатывается без STT."""
-    p1, p2, p3, p4 = _patch_all_agents()
+    p1, p2, p3, p4, p5, p6 = _patch_all_agents()
     with p1 as mock_stt, p2 as mock_recon, \
-         p3 as mock_variants, p4:
+         p3 as mock_variants, p4, p5, p6:
 
         mock_recon.return_value = MOCK_RECON_RESULT
         mock_variants.return_value = MOCK_VARIANTS_RESULT
@@ -255,9 +259,9 @@ def test_websocket_text_message_empty(test_client):
 
 def test_websocket_reconstruction_failure_degrades(test_client):
     """При ошибке reconstruction pipeline продолжает с raw transcript."""
-    p1, p2, p3, p4 = _patch_all_agents()
+    p1, p2, p3, p4, p5, p6 = _patch_all_agents()
     with p1 as mock_stt, p2 as mock_recon, \
-         p3 as mock_variants, p4:
+         p3 as mock_variants, p4, p5, p6:
 
         mock_stt.return_value = MOCK_STT_RESULT
         mock_recon.side_effect = Exception("Reconstruction failed")
@@ -285,8 +289,10 @@ def test_websocket_companion_failure_degrades(test_client):
     p2 = patch("app.api.routes.ws.reconstruct", new_callable=AsyncMock)
     p3 = patch("app.api.routes.ws.get_variants", new_callable=AsyncMock)
     p4 = patch("app.api.routes.ws.generate_response_stream", side_effect=_mock_companion_stream_fail)
+    p5 = patch("app.api.routes.ws._build_memory_context", new_callable=AsyncMock, return_value=None)
+    p6 = patch("app.api.routes.ws._memory_write_behind", new_callable=AsyncMock)
 
-    with p1 as mock_stt, p2 as mock_recon, p3 as mock_variants, p4:
+    with p1 as mock_stt, p2 as mock_recon, p3 as mock_variants, p4, p5, p6:
         mock_stt.return_value = MOCK_STT_RESULT
         mock_recon.return_value = MOCK_RECON_RESULT
         mock_variants.return_value = MOCK_VARIANTS_RESULT
@@ -308,9 +314,9 @@ def test_websocket_companion_failure_degrades(test_client):
 
 def test_websocket_variants_failure_degrades(test_client):
     """При ошибке variants pipeline отправляет fallback варианты."""
-    p1, p2, p3, p4 = _patch_all_agents()
+    p1, p2, p3, p4, p5, p6 = _patch_all_agents()
     with p1 as mock_stt, p2 as mock_recon, \
-         p3 as mock_variants, p4:
+         p3 as mock_variants, p4, p5, p6:
 
         mock_stt.return_value = MOCK_STT_RESULT
         mock_recon.return_value = MOCK_RECON_RESULT
@@ -332,9 +338,9 @@ def test_websocket_variants_failure_degrades(test_client):
 
 def test_websocket_concurrent_processing_blocked(test_client):
     """processing flag блокирует параллельные запросы."""
-    p1, p2, p3, p4 = _patch_all_agents()
+    p1, p2, p3, p4, p5, p6 = _patch_all_agents()
     with p1 as mock_stt, p2 as mock_recon, \
-         p3 as mock_variants, p4:
+         p3 as mock_variants, p4, p5, p6:
 
         import asyncio as _asyncio
 
@@ -368,9 +374,9 @@ def test_websocket_rate_limit(test_client):
     """Rate limit блокирует после MAX_MESSAGES_PER_MINUTE сообщений."""
     from app.api.routes.ws import MAX_MESSAGES_PER_MINUTE
 
-    p1, p2, p3, p4 = _patch_all_agents()
+    p1, p2, p3, p4, p5, p6 = _patch_all_agents()
     with p1 as mock_stt, p2 as mock_recon, \
-         p3 as mock_variants, p4:
+         p3 as mock_variants, p4, p5, p6:
 
         mock_recon.return_value = MOCK_RECON_RESULT
         mock_variants.return_value = MOCK_VARIANTS_RESULT
