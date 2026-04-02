@@ -25,14 +25,24 @@ export interface ReconstructionResult {
 }
 
 /**
- * Результат генерации вариантов фраз
+ * Один вариант фразы с контекстом
+ */
+export interface VariantItem {
+  text: string;
+  context: string;
+}
+
+/**
+ * Результат генерации вариантов фраз.
+ * Backend возвращает {text, context} для каждого стиля.
+ * Для backward compat поддерживаем и plain string.
  */
 export interface VariantsResult {
-  simple: string;
-  professional: string;
-  colloquial: string;
-  slang: string;
-  idiom: string;
+  simple: string | VariantItem;
+  professional: string | VariantItem;
+  colloquial: string | VariantItem;
+  slang: string | VariantItem;
+  idiom: string | VariantItem;
 }
 
 /**

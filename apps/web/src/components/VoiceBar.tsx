@@ -285,7 +285,7 @@ export function VoiceBar({
             onKeyDown={handleKeyDown}
             placeholder="Type a message..."
             className={cn(
-              "flex-1 bg-input border border-subtle rounded-full",
+              "flex-1 bg-input border border-subtle rounded-xl",
               "px-4 py-[10px] text-size-base text-primary",
               "placeholder:text-muted outline-none",
               "focus:border-accent transition-colors"

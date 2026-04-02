@@ -2,7 +2,21 @@
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import type { VariantsResult } from "@/hooks/useVoiceSession";
+import type { VariantsResult, VariantItem } from "@/hooks/useVoiceSession";
+
+/**
+ * Извлечь текст из варианта (поддержка string и {text, context})
+ */
+function getVariantText(v: string | VariantItem): string {
+  return typeof v === "string" ? v : v.text;
+}
+
+/**
+ * Извлечь context из варианта
+ */
+function getVariantContext(v: string | VariantItem): string {
+  return typeof v === "string" ? "" : (v.context || "");
+}
 
 /**
  * Стили вариантов
@@ -69,6 +83,7 @@ const VARIANT_CONFIGS: Record<VariantStyle, VariantConfig> = {
 interface VariantCardProps {
   style: VariantStyle;
   phrase: string;
+  context?: string;
   isSaved: boolean;
   onSave: () => void;
   onPlay: () => void;
@@ -81,6 +96,7 @@ interface VariantCardProps {
 function VariantCard({
   style,
   phrase,
+  context,
   isSaved,
   onSave,
   onPlay,
@@ -125,12 +141,12 @@ function VariantCard({
         &ldquo;{phrase}&rdquo;
       </div>
 
-      {/* Subtitle */}
+      {/* Subtitle — context from backend or fallback */}
       <div
         className="text-muted leading-[1.4] mb-[10px]"
         style={{ fontSize: "10px" }}
       >
-        {config.subtitle}
+        {context || config.subtitle}
       </div>
 
       {/* Actions */}
@@ -323,10 +339,11 @@ export function VariantCards({
             <VariantCard
               key={style}
               style={style}
-              phrase={variants[style]}
+              phrase={getVariantText(variants[style])}
+              context={getVariantContext(variants[style])}
               isSaved={savedStyles.has(style)}
-              onSave={() => handleSave(style, variants[style])}
-              onPlay={() => handlePlay(style, variants[style])}
+              onSave={() => handleSave(style, getVariantText(variants[style]))}
+              onPlay={() => handlePlay(style, getVariantText(variants[style]))}
               isPlaying={playingStyle === style}
             />
           ))}
