@@ -3,6 +3,12 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { VariantCards } from "../VariantCards";
 import type { VariantsResult } from "@/hooks/useVoiceSession";
 
+vi.mock("@/lib/edgeTts", () => ({
+  playTts: vi.fn(() => Promise.resolve()),
+  stopTts: vi.fn(),
+  isTtsPlaying: vi.fn(() => false),
+}));
+
 describe("VariantCards", () => {
   const mockVariants: VariantsResult = {
     simple: "I worked on the deployment pipeline",

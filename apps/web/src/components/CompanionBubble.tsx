@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useEffect } from "react";
 import type { Message, CompanionName } from "@/store/chatStore";
 import { ActionPill } from "@/components/ui/ActionPill";
+import { playTts, stopTts } from "@/lib/edgeTts";
 
 /**
  * Props для CompanionBubble
@@ -142,30 +143,24 @@ export function CompanionBubble({
 
   // Отменяем TTS при unmount
   useEffect(() => {
-    return () => { window.speechSynthesis.cancel(); };
+    return () => { stopTts(); };
   }, []);
 
   /**
-   * Обработка TTS
+   * Обработка TTS через Edge-TTS
    */
   const handleListen = useCallback(() => {
     if (isSpeaking) {
-      window.speechSynthesis.cancel();
+      stopTts();
       setIsSpeaking(false);
       return;
     }
 
-    const utterance = new SpeechSynthesisUtterance(message.text);
-    utterance.lang = "en-US";
-    utterance.rate = 0.88;
-    utterance.pitch = 1.0;
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
-
-    window.speechSynthesis.speak(utterance);
     setIsSpeaking(true);
-
     onListen?.(message.text);
+
+    playTts(message.text)
+      .finally(() => setIsSpeaking(false));
   }, [message.text, isSpeaking, onListen]);
 
   /**

@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import type { VariantsResult, VariantItem } from "@/hooks/useVoiceSession";
+import { playTts, stopTts } from "@/lib/edgeTts";
 
 /**
  * Извлечь текст из варианта (поддержка string и {text, context})
@@ -219,7 +220,7 @@ export function VariantCards({
 
   // Отменяем TTS при unmount
   useEffect(() => {
-    return () => { window.speechSynthesis.cancel(); };
+    return () => { stopTts(); };
   }, []);
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
@@ -243,22 +244,16 @@ export function VariantCards({
   const handlePlay = useCallback(
     (style: VariantStyle, phrase: string) => {
       if (playingStyle === style) {
-        window.speechSynthesis.cancel();
+        stopTts();
         setPlayingStyle(null);
         return;
       }
 
-      window.speechSynthesis.cancel();
-
-      const utterance = new SpeechSynthesisUtterance(phrase);
-      utterance.lang = "en-US";
-      utterance.rate = 0.88;
-      utterance.pitch = 1.0;
-      utterance.onend = () => setPlayingStyle(null);
-      utterance.onerror = () => setPlayingStyle(null);
-
-      window.speechSynthesis.speak(utterance);
+      stopTts();
       setPlayingStyle(style);
+
+      playTts(phrase)
+        .finally(() => setPlayingStyle(null));
     },
     [playingStyle]
   );
