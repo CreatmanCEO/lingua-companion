@@ -7,7 +7,9 @@ import { ChatArea } from "@/components/layout/ChatArea";
 import { useScrollDirection } from "@/hooks/useScrollDirection";
 import { ScenarioScreen } from "@/components/layout/ScenarioScreen";
 import { VoiceBar, type InputMode } from "@/components/VoiceBar";
+import { SettingsPanel } from "@/components/SettingsPanel";
 import { useChatStore } from "@/store/chatStore";
+import { useSettingsStore } from "@/store/settingsStore";
 import { useVoiceSession } from "@/hooks/useVoiceSession";
 import {
   getWelcomeMessage,
@@ -28,9 +30,13 @@ import {
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<TabType>("free-chat");
   const [isTyping, setIsTyping] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const scrollDirection = useScrollDirection(chatScrollRef);
   const headerHidden = scrollDirection === "down";
+
+  // Settings store
+  const { loadFromLocalStorage } = useSettingsStore();
 
   // Zustand store
   const {
@@ -97,6 +103,11 @@ export default function HomePage() {
       setIsTyping(false);
     },
   });
+
+  // Загрузка настроек из localStorage при монтировании
+  useEffect(() => {
+    loadFromLocalStorage();
+  }, [loadFromLocalStorage]);
 
   // Подключение к WebSocket при монтировании
   useEffect(() => {
@@ -283,7 +294,7 @@ export default function HomePage() {
           companionName={activeCompanion}
           isOnline={isConnected}
           isTyping={isTyping}
-          onSettingsClick={() => console.log("Settings clicked")}
+          onSettingsClick={() => setSettingsOpen(true)}
           scenarioName={activeScenario?.name}
           onEndScenario={() => {
             endScenario();
@@ -327,6 +338,15 @@ export default function HomePage() {
         isProcessing={isProcessing}
         companionName={activeCompanion}
         companionStyle="Professional"
+      />
+
+      {/* Settings Panel */}
+      <SettingsPanel
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        onCompanionChange={(name) => {
+          useChatStore.getState().setActiveCompanion(name);
+        }}
       />
     </div>
   );
