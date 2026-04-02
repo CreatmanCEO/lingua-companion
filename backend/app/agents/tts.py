@@ -66,6 +66,9 @@ async def synthesize(
 
     audio_data = b"".join(audio_chunks)
 
+    if not audio_data:
+        raise ValueError("Edge-TTS returned empty audio")
+
     # Сохраняем в кеш
     _tts_cache[cache_key] = audio_data
     _tts_cache.move_to_end(cache_key)

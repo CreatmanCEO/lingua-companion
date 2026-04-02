@@ -13,6 +13,8 @@ async def lifespan(app: FastAPI):
     print(f"[START] {settings.APP_NAME} v{settings.VERSION} starting...")
     yield
     # Shutdown
+    from app.agents.memory import close_pool
+    await close_pool()
     print("[STOP] Shutting down...")
 
 

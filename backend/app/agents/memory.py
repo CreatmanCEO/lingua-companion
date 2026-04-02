@@ -44,6 +44,14 @@ async def get_pool():
     return _pool
 
 
+async def close_pool():
+    """Закрыть пул подключений при shutdown."""
+    global _pool
+    if _pool is not None:
+        await _pool.close()
+        _pool = None
+
+
 async def embed_text(text: str) -> list[float]:
     """
     Получить embedding через Google Embeddings API (768-dim).
