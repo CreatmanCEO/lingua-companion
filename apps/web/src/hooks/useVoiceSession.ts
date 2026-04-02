@@ -62,6 +62,7 @@ type WebSocketEventType =
   | "variants_result"
   | "companion_token"
   | "companion_response"
+  | "onboarding_complete"
   | "error";
 
 /**
@@ -83,12 +84,24 @@ export interface CompanionTokenEvent {
 /**
  * Callbacks для обработки событий
  */
+/**
+ * Onboarding complete event
+ */
+export interface OnboardingCompleteEvent {
+  data: Record<string, string>;
+  companion: string;
+}
+
+/**
+ * Callbacks для обработки событий
+ */
 interface VoiceSessionCallbacks {
   onSttResult?: (result: SttResult) => void;
   onReconstructionResult?: (result: ReconstructionResult) => void;
   onVariantsResult?: (result: VariantsResult) => void;
   onCompanionToken?: (event: CompanionTokenEvent) => void;
   onCompanionResponse?: (result: CompanionResult) => void;
+  onOnboardingComplete?: (event: OnboardingCompleteEvent) => void;
   onError?: (error: string) => void;
 }
 
@@ -263,6 +276,12 @@ export function useVoiceSession(
             checkAllPendingDone();
             break;
 
+          case "onboarding_complete":
+            // Onboarding done — не влияет на pending (onboarding не использует pipeline)
+            callbacksRef.current.onOnboardingComplete?.(data as OnboardingCompleteEvent);
+            setConnectionState("connected");
+            break;
+
           case "error":
             clearProcessingTimeout();
             setConnectionState("connected");
@@ -360,7 +379,7 @@ export function useVoiceSession(
   /**
    * Отправка конфигурации сессии (companion, scenario) на сервер
    */
-  const sendConfig = useCallback((companion: string, scenario: object | null) => {
+  const sendConfig = useCallback((companion: string, scenario: object | null, extra?: Record<string, unknown>) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
       return;
     }
@@ -369,6 +388,7 @@ export function useVoiceSession(
       type: "session_config",
       companion,
       scenario,
+      ...extra,
     }));
   }, []);
 

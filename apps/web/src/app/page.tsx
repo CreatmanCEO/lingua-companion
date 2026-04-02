@@ -36,6 +36,10 @@ export default function HomePage() {
     if (typeof window === "undefined") return false;
     return !localStorage.getItem("lc-hints-seen");
   });
+  const [isOnboarding, setIsOnboarding] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return !localStorage.getItem("lc-onboarded");
+  });
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const scrollDirection = useScrollDirection(chatScrollRef);
   const headerHidden = scrollDirection === "down";
@@ -110,6 +114,22 @@ export default function HomePage() {
         text: result.text,
       });
     },
+    onOnboardingComplete: (event) => {
+      // Onboarding завершён — сохраняем, переключаем companion
+      localStorage.setItem("lc-onboarded", "true");
+      setIsOnboarding(false);
+      if (event.companion) {
+        useChatStore.getState().setActiveCompanion(event.companion as "Alex" | "Sam" | "Morgan");
+        sendConfig(event.companion, null);
+      }
+      addMessage({
+        sender: "companion",
+        contentType: "text",
+        text: getWelcomeMessage(
+          (event.companion as "Alex" | "Sam" | "Morgan") || activeCompanion,
+        ),
+      });
+    },
     onError: (error) => {
       console.error("WebSocket error:", error);
       setIsAnalysing(false);
@@ -136,7 +156,7 @@ export default function HomePage() {
   // Отправляем session_config при подключении и при смене companion/scenario
   useEffect(() => {
     if (isConnected) {
-      sendConfig(activeCompanion, activeScenario);
+      sendConfig(activeCompanion, activeScenario, { onboarding: isOnboarding });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected, activeCompanion, activeScenario]);

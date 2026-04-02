@@ -16,6 +16,9 @@ from app.agents.memory import (
     search_memory, get_user_facts, store_memory,
     extract_facts, upsert_fact, track_vocab_gap, USER_ID,
 )
+from app.agents.onboarding import (
+    get_onboarding_response, extract_onboarding_data, is_onboarding_complete,
+)
 
 
 router = APIRouter()
@@ -224,6 +227,69 @@ async def process_text(
         )
 
 
+async def process_onboarding(
+    websocket: WebSocket,
+    text: str,
+    session: dict,
+) -> None:
+    """
+    Обработка onboarding сообщения: без pipeline (no STT/Reconstruction/Variants).
+    Только onboarding agent → проверка завершённости → сохранение фактов.
+    """
+    if not text.strip():
+        await send_event(websocket, "error", {"message": "Empty text message"})
+        return
+
+    try:
+        onboarding_history = session.get("onboarding_history", [])
+
+        result = await get_onboarding_response(text, onboarding_history)
+
+        # Обновляем историю onboarding
+        onboarding_history.append({"role": "user", "content": text})
+        onboarding_history.append({"role": "assistant", "content": result["text"]})
+        session["onboarding_history"] = onboarding_history
+
+        # Отправляем ответ как companion_response
+        await send_event(websocket, "companion_response", {
+            "text": result["text"],
+            "companion": "Onboarding",
+        })
+
+        # Проверяем завершённость
+        data = await extract_onboarding_data(onboarding_history)
+        if is_onboarding_complete(data):
+            # Сохраняем факты в memory
+            for key, value in data.items():
+                asyncio.create_task(
+                    upsert_fact(USER_ID, key, str(value)),
+                    name=f"onboarding_fact_{key}",
+                )
+
+            # Переключаем на companion mode
+            session["onboarding"] = False
+
+            # Маппинг стиля → companion
+            style_to_companion = {
+                "professional": "Alex",
+                "casual": "Sam",
+                "mentor": "Morgan",
+            }
+            chosen = style_to_companion.get(data.get("style", ""), "Alex")
+            session["companion"] = chosen
+
+            await send_event(websocket, "onboarding_complete", {
+                "data": data,
+                "companion": chosen,
+            })
+
+    except Exception as e:
+        logger.error("Onboarding processing failed", exc_info=True)
+        await send_event(
+            websocket, "error", {"message": f"Onboarding failed: {str(e)}"}
+        )
+
+
 @router.websocket("/ws/session")
 async def websocket_session(websocket: WebSocket):
     """
@@ -248,13 +314,15 @@ async def websocket_session(websocket: WebSocket):
     await websocket.accept()
     logger.info("WebSocket connected")
 
-    # Состояние сессии: companion, scenario, history, processing, rate limiting
+    # Состояние сессии: companion, scenario, history, processing, rate limiting, onboarding
     session: dict = {
         "companion": "Alex",
         "scenario": None,
         "history": [],
         "processing": False,
         "message_timestamps": [],
+        "onboarding": False,
+        "onboarding_history": [],
     }
 
     try:
@@ -274,6 +342,8 @@ async def websocket_session(websocket: WebSocket):
                             session["companion"] = data["companion"]
                         if "scenario" in data:
                             session["scenario"] = data["scenario"]
+                        if "onboarding" in data:
+                            session["onboarding"] = data["onboarding"]
                         continue
 
                     elif msg_type == "text_message":
@@ -289,11 +359,14 @@ async def websocket_session(websocket: WebSocket):
                                 "message": "Rate limit exceeded",
                             })
                             continue
-                        # Текстовое сообщение -- без STT
+                        # Текстовое сообщение — роутинг: onboarding или обычный pipeline
                         text = data.get("text", "")
                         session["processing"] = True
                         try:
-                            await process_text(websocket, text, session)
+                            if session.get("onboarding"):
+                                await process_onboarding(websocket, text, session)
+                            else:
+                                await process_text(websocket, text, session)
                         finally:
                             session["processing"] = False
                         continue
