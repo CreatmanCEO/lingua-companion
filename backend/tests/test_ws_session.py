@@ -41,13 +41,27 @@ MOCK_COMPANION_RESULT = {
 }
 
 
+async def _mock_companion_stream(*args, **kwargs):
+    """Мок async generator для generate_response_stream."""
+    companion = kwargs.get("companion", "Alex")
+    yield {"type": "token", "delta": "That sounds "}
+    yield {"type": "token", "delta": "interesting!"}
+    yield {"type": "done", "text": "That sounds interesting!", "companion": companion}
+
+
+async def _mock_companion_stream_fail(*args, **kwargs):
+    """Мок stream с ошибкой — fallback."""
+    raise Exception("Companion LLM failed")
+    yield  # noqa: unreachable — нужен для async generator
+
+
 def _patch_all_agents():
     """Контекстный менеджер для мока всех четырёх агентов."""
     return (
         patch("app.api.routes.ws.transcribe", new_callable=AsyncMock),
         patch("app.api.routes.ws.reconstruct", new_callable=AsyncMock),
         patch("app.api.routes.ws.get_variants", new_callable=AsyncMock),
-        patch("app.api.routes.ws.generate_response", new_callable=AsyncMock),
+        patch("app.api.routes.ws.generate_response_stream", side_effect=_mock_companion_stream),
     )
 
 
@@ -87,21 +101,21 @@ def test_websocket_handles_empty_audio(test_client):
 
 
 def test_websocket_full_pipeline(test_client):
-    """Full pipeline returns all 4 expected events (stt + recon + variants + companion)."""
+    """Full pipeline returns expected events (stt + recon + variants + companion_tokens + companion)."""
     p1, p2, p3, p4 = _patch_all_agents()
     with p1 as mock_stt, p2 as mock_recon, \
-         p3 as mock_variants, p4 as mock_companion:
+         p3 as mock_variants, p4:
 
         mock_stt.return_value = MOCK_STT_RESULT
         mock_recon.return_value = MOCK_RECON_RESULT
         mock_variants.return_value = MOCK_VARIANTS_RESULT
-        mock_companion.return_value = MOCK_COMPANION_RESULT
 
         with test_client.websocket_connect("/ws/session") as websocket:
             websocket.send_bytes(b"fake_audio")
 
+            # Collect events: stt + processing_started + recon + variants + 2 tokens + companion_response = 7
             events = []
-            for _ in range(5):  # Expect 5 events (stt + processing_started + recon + variants + companion)
+            for _ in range(7):
                 events.append(websocket.receive_json())
 
             event_types = {e["type"] for e in events}
@@ -109,16 +123,15 @@ def test_websocket_full_pipeline(test_client):
             assert "processing_started" in event_types
             assert "reconstruction_result" in event_types
             assert "variants_result" in event_types
+            assert "companion_token" in event_types
             assert "companion_response" in event_types
 
-            # Проверяем содержимое companion_response
             companion_event = next(
                 e for e in events if e["type"] == "companion_response"
             )
             assert companion_event["text"] == "That sounds interesting!"
             assert companion_event["companion"] == "Alex"
 
-            # Variants должен получить corrected текст, а не raw transcript
             mock_variants.assert_called_once_with("test corrected")
 
 
@@ -162,20 +175,24 @@ def test_websocket_client_disconnect(test_client):
 
 def test_websocket_session_config(test_client):
     """session_config устанавливает companion и scenario."""
-    p1, p2, p3, p4 = _patch_all_agents()
-    with p1 as mock_stt, p2 as mock_recon, \
-         p3 as mock_variants, p4 as mock_companion:
+    async def _morgan_stream(*args, **kwargs):
+        companion = kwargs.get("companion", "Alex")
+        assert companion == "Morgan", f"Expected Morgan, got {companion}"
+        assert kwargs.get("scenario", {}).get("companionRole") == "Tech Lead"
+        yield {"type": "token", "delta": "Let's review!"}
+        yield {"type": "done", "text": "Let's review!", "companion": companion}
 
+    p1 = patch("app.api.routes.ws.transcribe", new_callable=AsyncMock)
+    p2 = patch("app.api.routes.ws.reconstruct", new_callable=AsyncMock)
+    p3 = patch("app.api.routes.ws.get_variants", new_callable=AsyncMock)
+    p4 = patch("app.api.routes.ws.generate_response_stream", side_effect=_morgan_stream)
+
+    with p1 as mock_stt, p2 as mock_recon, p3 as mock_variants, p4:
         mock_stt.return_value = MOCK_STT_RESULT
         mock_recon.return_value = MOCK_RECON_RESULT
         mock_variants.return_value = MOCK_VARIANTS_RESULT
-        mock_companion.return_value = {
-            "text": "Let's review the code!",
-            "companion": "Morgan",
-        }
 
         with test_client.websocket_connect("/ws/session") as websocket:
-            # Отправляем session_config
             websocket.send_text(json.dumps({
                 "type": "session_config",
                 "companion": "Morgan",
@@ -185,38 +202,34 @@ def test_websocket_session_config(test_client):
                 },
             }))
 
-            # Отправляем аудио -- companion должен быть Morgan
             websocket.send_bytes(b"fake_audio")
 
             events = []
-            for _ in range(5):  # stt + processing_started + recon + variants + companion
+            for _ in range(6):  # stt + processing_started + recon + variants + token + companion
                 events.append(websocket.receive_json())
 
-            # Проверяем что companion agent был вызван с Morgan
-            call_kwargs = mock_companion.call_args.kwargs
-            assert call_kwargs["companion"] == "Morgan"
-            assert call_kwargs["scenario"]["companionRole"] == "Tech Lead"
+            companion_event = next(e for e in events if e["type"] == "companion_response")
+            assert companion_event["companion"] == "Morgan"
 
 
 def test_websocket_text_message(test_client):
     """text_message обрабатывается без STT."""
     p1, p2, p3, p4 = _patch_all_agents()
     with p1 as mock_stt, p2 as mock_recon, \
-         p3 as mock_variants, p4 as mock_companion:
+         p3 as mock_variants, p4:
 
         mock_recon.return_value = MOCK_RECON_RESULT
         mock_variants.return_value = MOCK_VARIANTS_RESULT
-        mock_companion.return_value = MOCK_COMPANION_RESULT
 
         with test_client.websocket_connect("/ws/session") as websocket:
-            # Отправляем текстовое сообщение
             websocket.send_text(json.dumps({
                 "type": "text_message",
                 "text": "I want to learn English",
             }))
 
             events = []
-            for _ in range(3):  # reconstruction + variants + companion (no STT)
+            # recon + variants + 2 tokens + companion_response = 5
+            for _ in range(5):
                 events.append(websocket.receive_json())
 
             event_types = {e["type"] for e in events}
@@ -224,7 +237,6 @@ def test_websocket_text_message(test_client):
             assert "variants_result" in event_types
             assert "companion_response" in event_types
 
-            # STT НЕ должен вызываться для текстовых сообщений
             mock_stt.assert_not_called()
 
 
@@ -245,40 +257,39 @@ def test_websocket_reconstruction_failure_degrades(test_client):
     """При ошибке reconstruction pipeline продолжает с raw transcript."""
     p1, p2, p3, p4 = _patch_all_agents()
     with p1 as mock_stt, p2 as mock_recon, \
-         p3 as mock_variants, p4 as mock_companion:
+         p3 as mock_variants, p4:
 
         mock_stt.return_value = MOCK_STT_RESULT
         mock_recon.side_effect = Exception("Reconstruction failed")
         mock_variants.return_value = MOCK_VARIANTS_RESULT
-        mock_companion.return_value = MOCK_COMPANION_RESULT
 
         with test_client.websocket_connect("/ws/session") as websocket:
             websocket.send_bytes(b"fake_audio")
 
             events = []
-            for _ in range(5):  # stt + processing_started + recon(degraded) + variants + companion
+            for _ in range(7):  # stt + processing_started + recon(degraded) + variants + 2 tokens + companion
                 events.append(websocket.receive_json())
 
             event_types = {e["type"] for e in events}
             assert "stt_result" in event_types
             assert "reconstruction_result" in event_types
 
-            # Reconstruction result should be degraded
             recon_event = next(e for e in events if e["type"] == "reconstruction_result")
             assert recon_event.get("degraded") is True
-            assert recon_event["corrected"] == "test transcript"  # raw transcript used
+            assert recon_event["corrected"] == "test transcript"
 
 
 def test_websocket_companion_failure_degrades(test_client):
-    """При ошибке companion pipeline отправляет fallback ответ."""
-    p1, p2, p3, p4 = _patch_all_agents()
-    with p1 as mock_stt, p2 as mock_recon, \
-         p3 as mock_variants, p4 as mock_companion:
+    """При ошибке companion stream pipeline отправляет fallback ответ."""
+    p1 = patch("app.api.routes.ws.transcribe", new_callable=AsyncMock)
+    p2 = patch("app.api.routes.ws.reconstruct", new_callable=AsyncMock)
+    p3 = patch("app.api.routes.ws.get_variants", new_callable=AsyncMock)
+    p4 = patch("app.api.routes.ws.generate_response_stream", side_effect=_mock_companion_stream_fail)
 
+    with p1 as mock_stt, p2 as mock_recon, p3 as mock_variants, p4:
         mock_stt.return_value = MOCK_STT_RESULT
         mock_recon.return_value = MOCK_RECON_RESULT
         mock_variants.return_value = MOCK_VARIANTS_RESULT
-        mock_companion.side_effect = Exception("Companion LLM failed")
 
         with test_client.websocket_connect("/ws/session") as websocket:
             websocket.send_bytes(b"fake_audio")
@@ -292,25 +303,24 @@ def test_websocket_companion_failure_degrades(test_client):
 
             companion_event = next(e for e in events if e["type"] == "companion_response")
             assert companion_event.get("degraded") is True
-            assert len(companion_event["text"]) > 0  # fallback text
+            assert len(companion_event["text"]) > 0
 
 
 def test_websocket_variants_failure_degrades(test_client):
     """При ошибке variants pipeline отправляет fallback варианты."""
     p1, p2, p3, p4 = _patch_all_agents()
     with p1 as mock_stt, p2 as mock_recon, \
-         p3 as mock_variants, p4 as mock_companion:
+         p3 as mock_variants, p4:
 
         mock_stt.return_value = MOCK_STT_RESULT
         mock_recon.return_value = MOCK_RECON_RESULT
         mock_variants.side_effect = Exception("Variants LLM failed")
-        mock_companion.return_value = MOCK_COMPANION_RESULT
 
         with test_client.websocket_connect("/ws/session") as websocket:
             websocket.send_bytes(b"fake_audio")
 
             events = []
-            for _ in range(5):
+            for _ in range(7):  # stt + processing_started + recon + variants(degraded) + 2 tokens + companion
                 events.append(websocket.receive_json())
 
             event_types = {e["type"] for e in events}
@@ -322,11 +332,9 @@ def test_websocket_variants_failure_degrades(test_client):
 
 def test_websocket_concurrent_processing_blocked(test_client):
     """processing flag блокирует параллельные запросы."""
-    from app.api.routes.ws import _check_rate_limit
-
     p1, p2, p3, p4 = _patch_all_agents()
     with p1 as mock_stt, p2 as mock_recon, \
-         p3 as mock_variants, p4 as mock_companion:
+         p3 as mock_variants, p4:
 
         import asyncio as _asyncio
 
@@ -336,10 +344,8 @@ def test_websocket_concurrent_processing_blocked(test_client):
 
         mock_recon.side_effect = slow_reconstruct
         mock_variants.return_value = MOCK_VARIANTS_RESULT
-        mock_companion.return_value = MOCK_COMPANION_RESULT
 
         with test_client.websocket_connect("/ws/session") as websocket:
-            # Отправляем два текстовых сообщения подряд без ожидания
             websocket.send_text(json.dumps({
                 "type": "text_message",
                 "text": "first message",
@@ -349,15 +355,12 @@ def test_websocket_concurrent_processing_blocked(test_client):
                 "text": "second message",
             }))
 
-            # Собираем все ответы (3 от первого + 1 error или 3 от второго)
+            # Собираем ответы: 5 от первого (recon + variants + 2 tokens + companion) + 1 error или более
             events = []
-            for _ in range(4):
+            for _ in range(6):
                 events.append(websocket.receive_json())
 
             event_types = [e["type"] for e in events]
-            # Если concurrent blocking сработал — будет error
-            # Если нет (sequential execution) — оба обработаются нормально
-            # Оба варианта допустимы для TestClient, проверяем что pipeline не сломался
             assert "reconstruction_result" in event_types
 
 
@@ -367,33 +370,26 @@ def test_websocket_rate_limit(test_client):
 
     p1, p2, p3, p4 = _patch_all_agents()
     with p1 as mock_stt, p2 as mock_recon, \
-         p3 as mock_variants, p4 as mock_companion:
+         p3 as mock_variants, p4:
 
         mock_recon.return_value = MOCK_RECON_RESULT
         mock_variants.return_value = MOCK_VARIANTS_RESULT
-        mock_companion.return_value = MOCK_COMPANION_RESULT
 
         with test_client.websocket_connect("/ws/session") as websocket:
-            # Отправляем MAX_MESSAGES_PER_MINUTE + 1 сообщений
             for i in range(MAX_MESSAGES_PER_MINUTE + 1):
                 websocket.send_text(json.dumps({
                     "type": "text_message",
                     "text": f"message {i}",
                 }))
 
-                events = []
-                # Каждое сообщение генерирует 3 события (recon + variants + companion) или 1 error
                 resp = websocket.receive_json()
-                events.append(resp)
 
                 if resp["type"] == "error" and "Rate limit" in resp["message"]:
-                    # Rate limit сработал
                     assert i >= MAX_MESSAGES_PER_MINUTE
                     return
                 else:
-                    # Дочитываем оставшиеся события (recon + variants + companion = 3 total)
-                    for _ in range(2):
-                        events.append(websocket.receive_json())
+                    # Drain remaining events: recon + variants + 2 tokens + companion = 5 total, already read 1
+                    for _ in range(4):
+                        websocket.receive_json()
 
-            # Если дошли сюда — rate limit не сработал
             pytest.fail("Rate limit was not enforced")

@@ -187,3 +187,49 @@ async def test_generate_response_llm_failure(mock_llm_response):
         assert result["companion"] == "Alex"
         # Fallback ответ не должен быть пустым
         assert len(result["text"]) > 0
+
+
+@pytest.mark.asyncio
+async def test_generate_response_stream_yields_tokens():
+    """generate_response_stream() yields token events and a done event."""
+
+    async def _mock_stream(*args, **kwargs):
+        """Мок async generator для litellm stream."""
+        for token in ["Hello", " world", "!"]:
+            chunk = MagicMock()
+            chunk.choices = [MagicMock()]
+            chunk.choices[0].delta.content = token
+            yield chunk
+
+    with patch("app.agents.companion.litellm.acompletion", new_callable=AsyncMock) as mock_llm:
+        mock_llm.return_value = _mock_stream()
+
+        from app.agents.companion import generate_response_stream
+        events = []
+        async for event in generate_response_stream("Test"):
+            events.append(event)
+
+        # Should have 3 token events + 1 done event
+        token_events = [e for e in events if e["type"] == "token"]
+        done_events = [e for e in events if e["type"] == "done"]
+        assert len(token_events) == 3
+        assert len(done_events) == 1
+        assert done_events[0]["text"] == "Hello world!"
+        assert token_events[0]["delta"] == "Hello"
+
+
+@pytest.mark.asyncio
+async def test_generate_response_stream_failure_yields_fallback():
+    """При ошибке stream возвращает fallback через done event."""
+    with patch("app.agents.companion.litellm.acompletion", new_callable=AsyncMock) as mock_llm:
+        mock_llm.side_effect = Exception("Stream failed")
+
+        from app.agents.companion import generate_response_stream, _FALLBACK_RESPONSE
+        events = []
+        async for event in generate_response_stream("Test", companion="Sam"):
+            events.append(event)
+
+        assert len(events) == 1
+        assert events[0]["type"] == "done"
+        assert events[0]["text"] == _FALLBACK_RESPONSE
+        assert events[0]["companion"] == "Sam"

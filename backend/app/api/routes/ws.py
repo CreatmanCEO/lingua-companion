@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 from app.agents.stt import transcribe
 from app.agents.reconstruction import reconstruct
 from app.agents.phrase_variants import get_variants, REQUIRED_STYLES
-from app.agents.companion import generate_response, _FALLBACK_RESPONSE
+from app.agents.companion import generate_response, generate_response_stream, _FALLBACK_RESPONSE
 
 
 router = APIRouter()
@@ -44,6 +44,45 @@ async def send_event(ws: WebSocket, event_type: str, data: dict) -> None:
         await ws.send_json({"type": event_type, **data})
 
 
+async def _stream_companion(
+    websocket: WebSocket,
+    corrected: str,
+    session: dict,
+) -> str:
+    """Стримит companion токены через WS. Возвращает полный текст."""
+    companion_name = session.get("companion", "Alex")
+    full_text = _FALLBACK_RESPONSE
+
+    try:
+        async for event in generate_response_stream(
+            user_message=corrected,
+            companion=companion_name,
+            history=session.get("history", []),
+            scenario=session.get("scenario"),
+        ):
+            if event["type"] == "token":
+                await send_event(websocket, "companion_token", {
+                    "delta": event["delta"],
+                    "companion": companion_name,
+                })
+            elif event["type"] == "done":
+                full_text = event.get("text", _FALLBACK_RESPONSE)
+                await send_event(websocket, "companion_response", {
+                    "text": full_text,
+                    "companion": companion_name,
+                })
+    except Exception:
+        logger.error("Companion stream failed", exc_info=True)
+        await send_event(websocket, "companion_response", {
+            "text": _FALLBACK_RESPONSE,
+            "companion": companion_name,
+            "degraded": True,
+        })
+        full_text = _FALLBACK_RESPONSE
+
+    return full_text
+
+
 async def run_companion_and_variants(
     websocket: WebSocket,
     transcript: str,
@@ -52,79 +91,46 @@ async def run_companion_and_variants(
     session: dict,
 ) -> None:
     """
-    Запускает companion параллельно с оставшимся ожиданием variants.
-    Вызывается после получения результата reconstruction.
-
-    Отправляет reconstruction_result, variants_result и companion_response.
+    Запускает streaming companion параллельно с variants.
+    Отправляет reconstruction_result, companion_token(s), variants_result, companion_response.
     """
     # Отправляем reconstruction_result сразу
     await send_event(websocket, "reconstruction_result", reconstruction_result)
 
-    # Запускаем companion параллельно с variants (если ещё не завершён)
     corrected = reconstruction_result.get("corrected", transcript)
+    companion_name = session.get("companion", "Alex")
+
+    # Запускаем companion streaming как task
     companion_task = asyncio.create_task(
-        generate_response(
-            user_message=corrected,
-            companion=session.get("companion", "Alex"),
-            history=session.get("history", []),
-            scenario=session.get("scenario"),
-        ),
-        name="companion",
+        _stream_companion(websocket, corrected, session),
+        name="companion_stream",
     )
 
-    # Ожидаем оба: variants + companion
-    remaining = set()
+    # Ожидаем variants (если ещё не готов)
     if not variants_task.done():
-        remaining.add(variants_task)
+        try:
+            variants_result = await variants_task
+            await send_event(websocket, "variants_result", variants_result)
+        except Exception:
+            logger.error("Variants task failed", exc_info=True)
+            fallback_variants = {k: {"text": corrected, "context": ""} for k in REQUIRED_STYLES}
+            await send_event(websocket, "variants_result", {**fallback_variants, "degraded": True})
     else:
-        # Variants уже готов -- отправляем (с degraded handling)
         try:
             await send_event(websocket, "variants_result", variants_task.result())
         except Exception:
             logger.error("Variants task failed (already done)", exc_info=True)
             fallback_variants = {k: {"text": corrected, "context": ""} for k in REQUIRED_STYLES}
             await send_event(websocket, "variants_result", {**fallback_variants, "degraded": True})
-    remaining.add(companion_task)
 
-    task_to_event = {
-        variants_task: "variants_result",
-        companion_task: "companion_response",
-    }
-
-    while remaining:
-        done, remaining = await asyncio.wait(
-            remaining, return_when=asyncio.FIRST_COMPLETED
-        )
-        for task in done:
-            event_type = task_to_event.get(task)
-            if event_type:
-                try:
-                    await send_event(websocket, event_type, task.result())
-                except Exception:
-                    logger.error("Task %s failed in degraded mode", event_type, exc_info=True)
-                    if event_type == "variants_result":
-                        fallback = {k: {"text": corrected, "context": ""} for k in REQUIRED_STYLES}
-                        await send_event(websocket, event_type, {**fallback, "degraded": True})
-                    elif event_type == "companion_response":
-                        await send_event(websocket, event_type, {
-                            "text": _FALLBACK_RESPONSE,
-                            "companion": session.get("companion", "Alex"),
-                            "degraded": True,
-                        })
+    # Ожидаем завершения companion streaming
+    companion_text = await companion_task
 
     # Обновляем историю сессии
     history = session.setdefault("history", [])
     history.append({"role": "user", "content": corrected})
-    try:
-        companion_result = companion_task.result()
-    except Exception:
-        companion_result = {"text": _FALLBACK_RESPONSE, "companion": session.get("companion", "Alex")}
-    history.append({
-        "role": "assistant",
-        "content": companion_result.get("text", ""),
-    })
+    history.append({"role": "assistant", "content": companion_text})
 
-    # Обрезаем историю до лимита (скользящее окно)
     if len(history) > MAX_HISTORY_MESSAGES:
         session["history"] = history[-MAX_HISTORY_MESSAGES:]
 

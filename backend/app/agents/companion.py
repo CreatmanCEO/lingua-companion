@@ -95,31 +95,19 @@ _DEFAULT_COMPANION = "Alex"
 _FALLBACK_RESPONSE = "That's interesting! Could you tell me more about that?"
 
 
-async def generate_response(
+def _build_messages(
     user_message: str,
     companion: str = _DEFAULT_COMPANION,
     history: list[dict] | None = None,
     scenario: dict | None = None,
-) -> dict:
-    """
-    Генерирует ответ companion-агента на сообщение пользователя.
-
-    Args:
-        user_message: Реконструированный английский текст от Reconstruction Agent
-        companion: Имя персоны (Alex, Sam, Morgan)
-        history: История диалога [{role: "user"|"assistant", content: str}]
-        scenario: Контекст сценария {companionRole, userRole} или None
-
-    Returns:
-        {"text": "ответ companion", "companion": "имя персоны"}
-    """
+    memory_context: str | None = None,
+) -> list[dict]:
+    """Формирует список сообщений для LLM."""
     if history is None:
         history = []
 
-    # Выбираем системный промпт по имени персоны
     system_prompt = COMPANION_PROMPTS.get(companion, COMPANION_PROMPTS[_DEFAULT_COMPANION])
 
-    # Если есть сценарий -- добавляем контекст ролей
     if scenario:
         companion_role = scenario.get("companionRole", "")
         user_role = scenario.get("userRole", "")
@@ -131,15 +119,30 @@ async def generate_response(
                 "Stay in character for this scenario."
             )
 
-    # Формируем сообщения для LLM: system + history + текущее сообщение
-    messages = [{"role": "system", "content": system_prompt}]
+    if memory_context:
+        system_prompt += f"\n\nUser context from memory:\n{memory_context}"
 
-    # Обрезаем историю до MAX_HISTORY_MESSAGES (скользящее окно)
+    messages = [{"role": "system", "content": system_prompt}]
     trimmed_history = history[-MAX_HISTORY_MESSAGES:]
     messages.extend(trimmed_history)
-
-    # Добавляем текущее сообщение пользователя
     messages.append({"role": "user", "content": user_message})
+    return messages
+
+
+async def generate_response(
+    user_message: str,
+    companion: str = _DEFAULT_COMPANION,
+    history: list[dict] | None = None,
+    scenario: dict | None = None,
+    memory_context: str | None = None,
+) -> dict:
+    """
+    Генерирует ответ companion-агента (non-streaming).
+
+    Returns:
+        {"text": "ответ companion", "companion": "имя персоны"}
+    """
+    messages = _build_messages(user_message, companion, history, scenario, memory_context)
 
     try:
         response = await litellm.acompletion(
@@ -157,3 +160,42 @@ async def generate_response(
         text = _FALLBACK_RESPONSE
 
     return {"text": text, "companion": companion}
+
+
+async def generate_response_stream(
+    user_message: str,
+    companion: str = _DEFAULT_COMPANION,
+    history: list[dict] | None = None,
+    scenario: dict | None = None,
+    memory_context: str | None = None,
+):
+    """
+    Streaming ответ companion-агента. Yields dict events:
+      {"type": "token", "delta": "..."}
+      {"type": "done", "text": "full text", "companion": "..."}
+    """
+    messages = _build_messages(user_message, companion, history, scenario, memory_context)
+
+    try:
+        response = await litellm.acompletion(
+            model=settings.LLM_MODEL,
+            messages=messages,
+            temperature=0.7,
+            max_tokens=400,
+            stream=True,
+        )
+
+        full_text = ""
+        async for chunk in response:
+            delta = chunk.choices[0].delta.content
+            if delta:
+                full_text += delta
+                yield {"type": "token", "delta": delta}
+
+        full_text = full_text.strip()
+        logger.info("Companion %s streamed: %d chars", companion, len(full_text))
+        yield {"type": "done", "text": full_text, "companion": companion}
+
+    except Exception:
+        logger.error("Companion %s stream failed, using fallback", companion, exc_info=True)
+        yield {"type": "done", "text": _FALLBACK_RESPONSE, "companion": companion}
