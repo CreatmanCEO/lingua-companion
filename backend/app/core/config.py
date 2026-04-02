@@ -38,6 +38,7 @@ class Settings(BaseSettings):
 
     # Embeddings
     EMBEDDINGS_MODEL: str = "multilingual-e5-large"
+    GOOGLE_EMBEDDINGS_MODEL: str = "text-embedding-004"
     USE_LOCAL_EMBEDDINGS: bool = False  # False = Google API (saves RAM)
 
     class Config:
