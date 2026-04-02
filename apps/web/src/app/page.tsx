@@ -8,6 +8,7 @@ import { useScrollDirection } from "@/hooks/useScrollDirection";
 import { ScenarioScreen } from "@/components/layout/ScenarioScreen";
 import { VoiceBar, type InputMode } from "@/components/VoiceBar";
 import { SettingsPanel } from "@/components/SettingsPanel";
+import { HintOverlay } from "@/components/HintOverlay";
 import { useChatStore } from "@/store/chatStore";
 import { useSettingsStore } from "@/store/settingsStore";
 import { useVoiceSession } from "@/hooks/useVoiceSession";
@@ -31,6 +32,10 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState<TabType>("free-chat");
   const [isTyping, setIsTyping] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [showHints, setShowHints] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return !localStorage.getItem("lc-hints-seen");
+  });
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const scrollDirection = useScrollDirection(chatScrollRef);
   const headerHidden = scrollDirection === "down";
@@ -349,6 +354,9 @@ export default function HomePage() {
         companionName={activeCompanion}
         companionStyle="Professional"
       />
+
+      {/* Hint Overlay — first-time onboarding */}
+      {showHints && <HintOverlay onComplete={() => setShowHints(false)} />}
 
       {/* Settings Panel */}
       <SettingsPanel
