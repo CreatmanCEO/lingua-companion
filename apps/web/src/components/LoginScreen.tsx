@@ -13,10 +13,12 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<"login" | "register">("login");
+  const [signupSuccess, setSignupSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSignupSuccess(false);
     setLoading(true);
 
     try {
@@ -26,14 +28,21 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
           password,
         });
         if (authError) throw authError;
+        onSuccess();
       } else {
-        const { error: authError } = await supabase.auth.signUp({
+        const { data, error: authError } = await supabase.auth.signUp({
           email,
           password,
         });
         if (authError) throw authError;
+        // Supabase returns user but session may be null if email confirmation required
+        if (data.session) {
+          onSuccess();
+        } else {
+          // Email confirmation required
+          setSignupSuccess(true);
+        }
       }
-      onSuccess();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Authentication failed";
       setError(message);
@@ -82,6 +91,23 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
           <span className="text-xs text-white/40">or</span>
           <div className="flex-1 h-px bg-white/10" />
         </div>
+
+        {/* Signup success message */}
+        {signupSuccess && (
+          <div className="mb-4 p-4 bg-green-500/10 border border-green-500/20 rounded-xl text-center">
+            <p className="text-green-400 text-size-sm font-medium">Account created!</p>
+            <p className="text-green-400/70 text-xs mt-1">
+              Check your email for a verification link, then sign in.
+            </p>
+            <button
+              type="button"
+              onClick={() => { setMode("login"); setSignupSuccess(false); }}
+              className="mt-2 text-xs text-accent hover:text-accent/80"
+            >
+              Go to Sign in
+            </button>
+          </div>
+        )}
 
         {/* Email/Password Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
