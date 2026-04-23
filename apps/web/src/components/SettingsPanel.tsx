@@ -16,6 +16,8 @@ interface SettingsPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCompanionChange?: (name: CompanionName) => void;
+  userEmail?: string | null;
+  onLogout?: () => void;
 }
 
 const COMPANIONS: { key: CompanionName; label: string; desc: string }[] = [
@@ -63,7 +65,7 @@ function OptionButton({
   );
 }
 
-export function SettingsPanel({ open, onOpenChange, onCompanionChange }: SettingsPanelProps) {
+export function SettingsPanel({ open, onOpenChange, onCompanionChange, userEmail, onLogout }: SettingsPanelProps) {
   const {
     companion, voice, rate, topicPreference, level, theme,
     setCompanion, setVoice, setRate, setTopicPreference, setLevel, setTheme,
@@ -212,6 +214,23 @@ export function SettingsPanel({ open, onOpenChange, onCompanionChange }: Setting
               </OptionButton>
             </div>
           </section>
+
+          {/* Account */}
+          {onLogout && (
+            <section className="pt-4 border-t border-subtle">
+              <h3 className="text-size-sm font-semibold text-primary mb-2">Account</h3>
+              {userEmail && (
+                <p className="text-size-xs text-muted mb-2 truncate">{userEmail}</p>
+              )}
+              <button
+                type="button"
+                onClick={onLogout}
+                className="px-3 py-1.5 rounded-lg text-size-sm font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors"
+              >
+                Log out
+              </button>
+            </section>
+          )}
         </div>
       </SheetContent>
     </Sheet>

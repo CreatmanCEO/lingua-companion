@@ -9,9 +9,12 @@ import { ScenarioScreen } from "@/components/layout/ScenarioScreen";
 import { VoiceBar } from "@/components/VoiceBar";
 import { SettingsPanel } from "@/components/SettingsPanel";
 import { HintOverlay } from "@/components/HintOverlay";
+import { LoginScreen } from "@/components/LoginScreen";
 import { useChatStore } from "@/store/chatStore";
 import { useSettingsStore } from "@/store/settingsStore";
 import { useVoiceSession } from "@/hooks/useVoiceSession";
+import { supabase } from "@/lib/supabase";
+import type { Session } from "@supabase/supabase-js";
 import {
   getWelcomeMessage,
   getScenarioWelcomeMessage,
@@ -29,6 +32,7 @@ import {
  * - VoiceBar (4 состояния: text, voice, recording, processing)
  */
 export default function HomePage() {
+  const [authSession, setAuthSession] = useState<Session | null | "loading">("loading");
   const [activeTab, setActiveTab] = useState<TabType>("free-chat");
   const [isTyping, setIsTyping] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -41,6 +45,17 @@ export default function HomePage() {
     if (typeof window === "undefined") return false;
     return !localStorage.getItem("lc-onboarded");
   });
+
+  // Check Supabase auth session on mount
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setAuthSession(session);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthSession(session);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const scrollDirection = useScrollDirection(chatScrollRef);
   const headerHidden = scrollDirection === "down";
@@ -169,7 +184,11 @@ export default function HomePage() {
   // Отправляем session_config при подключении и при смене companion/scenario
   useEffect(() => {
     if (isConnected) {
-      sendConfig(activeCompanion, activeScenario, { onboarding: isOnboarding });
+      const token = authSession && authSession !== "loading" ? authSession.access_token : undefined;
+      sendConfig(activeCompanion, activeScenario, {
+        onboarding: isOnboarding,
+        ...(token ? { token } : {}),
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected, activeCompanion, activeScenario]);
@@ -321,6 +340,31 @@ export default function HomePage() {
     setActiveTab("free-chat"); // Переключаем на чат
   }, [startScenario]);
 
+  // Auth loading state
+  if (authSession === "loading") {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-void">
+        <div className="text-muted text-size-sm">Loading...</div>
+      </div>
+    );
+  }
+
+  // Auth gate: show login screen if no session
+  if (authSession === null) {
+    return (
+      <LoginScreen
+        onSuccess={() => {
+          // Re-check session (onAuthStateChange will handle it,
+          // but for "skip auth" demo mode we set null -> allow through)
+          supabase.auth.getSession().then(({ data: { session } }) => {
+            // If still no session (demo skip), use a sentinel to bypass
+            setAuthSession(session ?? ("demo" as unknown as Session));
+          });
+        }}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen bg-void">
       {/* Error Toast */}
@@ -396,6 +440,12 @@ export default function HomePage() {
         onOpenChange={setSettingsOpen}
         onCompanionChange={(name) => {
           useChatStore.getState().setActiveCompanion(name);
+        }}
+        userEmail={authSession && typeof authSession === "object" && "user" in authSession ? authSession.user?.email : undefined}
+        onLogout={async () => {
+          await supabase.auth.signOut();
+          setAuthSession(null);
+          setSettingsOpen(false);
         }}
       />
     </div>
