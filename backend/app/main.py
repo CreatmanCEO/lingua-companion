@@ -12,6 +12,9 @@ from app.api.routes.tts import router as tts_router
 from app.api.routes.translate import router as translate_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.phrases import router as phrases_router
+from app.api.routes.session import router as session_router
+from app.api.routes.stats import router as stats_router
+from app.api.routes.opengraph import router as opengraph_router
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +72,9 @@ app.include_router(auth_router)
 app.include_router(tts_router)
 app.include_router(translate_router)
 app.include_router(phrases_router)
+app.include_router(session_router)
+app.include_router(stats_router)
+app.include_router(opengraph_router)
 
 
 @app.get("/health")
