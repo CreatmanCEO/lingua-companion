@@ -25,6 +25,11 @@ interface UseAudioRecorderReturn {
 }
 
 /**
+ * Minimum recording duration in ms — ignore accidental taps
+ */
+const MIN_RECORDING_MS = 500;
+
+/**
  * Определение поддерживаемого MIME типа
  * Safari не поддерживает webm, используем mp4
  */
@@ -227,6 +232,14 @@ export function useAudioRecorder(
    */
   const stopRecording = useCallback(async (): Promise<Blob | null> => {
     if (!mediaRecorderRef.current || !isRecording) {
+      return null;
+    }
+
+    // Ignore recordings shorter than MIN_RECORDING_MS (accidental taps)
+    const elapsed = Date.now() - startTimeRef.current;
+    if (elapsed < MIN_RECORDING_MS) {
+      cleanup();
+      setIsRecording(false);
       return null;
     }
 

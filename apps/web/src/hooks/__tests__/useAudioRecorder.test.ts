@@ -41,13 +41,43 @@ describe("useAudioRecorder", () => {
       await result.current.startRecording();
     });
 
+    // Advance time past MIN_RECORDING_MS (500ms)
+    const originalNow = Date.now;
+    const startTime = Date.now();
+    Date.now = () => startTime + 600;
+
     let blob: Blob | null = null;
     await act(async () => {
       blob = await result.current.stopRecording();
     });
 
+    Date.now = originalNow;
+
     expect(result.current.isRecording).toBe(false);
     expect(blob).toBeInstanceOf(Blob);
+  });
+
+  it("should return null for recordings shorter than 500ms", async () => {
+    const { result } = renderHook(() => useAudioRecorder());
+
+    // Capture the start time so elapsed is ~0ms
+    const originalNow = Date.now;
+    const fixedTime = Date.now();
+    Date.now = () => fixedTime;
+
+    await act(async () => {
+      await result.current.startRecording();
+    });
+
+    let blob: Blob | null = null;
+    await act(async () => {
+      blob = await result.current.stopRecording();
+    });
+
+    Date.now = originalNow;
+
+    expect(result.current.isRecording).toBe(false);
+    expect(blob).toBeNull();
   });
 
   it("should cancel recording without returning blob", async () => {
