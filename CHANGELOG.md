@@ -4,6 +4,59 @@
 
 ---
 
+## [2026-04-23] — Stabilization + Full Feature Completion (Session 7-8)
+
+### ✅ Architecture
+- **feat**: Model Router — per-task LLM model routing via OpenRouter (DeepSeek V3.2 for chat/JSON, Qwen3 235B for translation/extraction, Gemma 4 for onboarding)
+- **feat**: Prompt Engine — YAML template registry + runtime builder with blocks (10 templates, 5 blocks). All hardcoded prompts extracted from Python agents
+- **feat**: TTS Fallback Chain — ElevenLabs (3 keys rotation) → AWS Polly Generative → Edge-TTS. Circuit breaker pattern
+- **refactor**: Orchestrator — pipeline logic extracted from `ws.py` (490→140 lines) into `PipelineOrchestrator` class
+- **feat**: Structured Logging — `structlog` with correlation IDs per WebSocket session
+
+### ✅ New Features
+- **feat**: Translation — `POST /api/v1/translate` + 🔄 toggle on companion messages and variant cards
+- **feat**: Phrase Library + SM-2 — save variants, review flashcards with spaced repetition scheduling
+- **feat**: Topic Discovery — HN + Reddit RSS fetch → LLM discussion prompts → background 4h task
+- **feat**: Post-Session Summary — LLM-generated learning insights (duration, errors, new words, advice)
+- **feat**: Stats / Progress — streak counter, activity chart, total stats, session recording
+- **feat**: Rich Link Card — auto-preview URLs in companion messages via OpenGraph
+- **feat**: Supabase Auth — email/password + Google OAuth, WebSocket token auth
+- **feat**: Web Push — Service Worker, push subscriptions, pending companion messages
+- **feat**: Message Persistence — localStorage with 200 message limit
+- **feat**: Conversational Onboarding — Onboarding Agent + 4-step hint overlay tooltips
+- **feat**: Memory Agent — RAG context, async write-behind, embed/search/store/fact extraction
+- **feat**: Streaming Companion — `litellm stream=True` + typewriter effect on frontend
+- **feat**: Settings Panel — user preferences UI, integrated into app
+- **feat**: Compact Header — merged companion info, removed CompanionBar, auto-hide on scroll
+
+### ✅ Bug Fixes
+- **fix**: Per-message analysis — reconstruction + variants stored per-message, no longer disappear
+- **fix**: Compact VoiceBar — Telegram-style single-row (36px mic), removed mode toggle
+- **fix**: Error toasts — WebSocket errors shown to user (was `console.log` only)
+- **fix**: Partial results — reconstruction/variants/companion render independently
+- **fix**: Silence threshold — recordings under 500ms ignored
+- **fix**: Error tracking — 3+ repeated errors → sandwich correction method
+- **fix**: Adaptive level — user CEFR level from onboarding → vocabulary adaptation
+- **fix**: User-scoped memory — real `user_id` from auth replaces hardcoded `"default"`
+- **fix**: `vocab_gaps` wiring — `track_vocab_gap()` connected to reconstruction pipeline
+- **fix**: Memory pool shutdown, empty TTS audio validation
+- **fix**: ESLint — impure `Date.now()` in render, unused Theme import
+
+### ✅ Infrastructure
+- All API tokens configured in `.env` (OpenRouter, ElevenLabs x3, AWS Polly, Supabase)
+- 5 DB migrations (topics, phrases, session_stats, push tables, user_facts, memory_vectors, vocab_gaps)
+- Iteration 9-10 design docs
+
+### 📊 Tests
+- Backend: **91+ tests passing**
+- Frontend: **67+ tests passing**
+
+### 📁 New Files
+- Backend: ~15 new files (routes, migrations, prompts, templates, blocks)
+- Frontend: ~8 new files (components, lib, service worker)
+
+---
+
 ## [2026-03-26] — Global Agent Fixes + Competitive Analysis (Session 6)
 
 ### ✅ Конкурентный анализ
