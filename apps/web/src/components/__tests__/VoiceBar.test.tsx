@@ -4,8 +4,6 @@ import { VoiceBar } from "../VoiceBar";
 
 describe("VoiceBar", () => {
   const defaultProps = {
-    mode: "voice" as const,
-    onModeChange: vi.fn(),
     onSendText: vi.fn(),
     onSendAudio: vi.fn(),
     isProcessing: false,
@@ -15,46 +13,48 @@ describe("VoiceBar", () => {
     vi.clearAllMocks();
   });
 
-  describe("Idle Text Mode", () => {
-    it("should render text input and send button in text mode", () => {
-      render(<VoiceBar {...defaultProps} mode="text" />);
+  describe("Idle State (single row)", () => {
+    it("should render text input and mic button", () => {
+      render(<VoiceBar {...defaultProps} />);
 
       expect(screen.getByPlaceholderText("Type a message...")).toBeInTheDocument();
-      // Send button - найдём по структуре (SVG внутри button)
-      const sendButtons = screen.getAllByRole("button");
-      expect(sendButtons.length).toBeGreaterThan(0);
+      expect(screen.getByLabelText("Hold to record")).toBeInTheDocument();
     });
 
-    it("should render voice mode pill", () => {
-      render(<VoiceBar {...defaultProps} mode="text" />);
+    it("should show send button when text is entered, hiding mic", () => {
+      render(<VoiceBar {...defaultProps} />);
 
-      expect(screen.getByText(/🎤 Voice/)).toBeInTheDocument();
+      const input = screen.getByPlaceholderText("Type a message...");
+      fireEvent.change(input, { target: { value: "Hello" } });
+
+      expect(screen.getByLabelText("Send message")).toBeInTheDocument();
+      expect(screen.queryByLabelText("Hold to record")).not.toBeInTheDocument();
     });
 
-    it("should call onModeChange when clicking voice pill", () => {
-      render(<VoiceBar {...defaultProps} mode="text" />);
+    it("should show mic button when text is cleared", () => {
+      render(<VoiceBar {...defaultProps} />);
 
-      fireEvent.click(screen.getByText(/🎤 Voice/));
+      const input = screen.getByPlaceholderText("Type a message...");
+      fireEvent.change(input, { target: { value: "Hello" } });
+      fireEvent.change(input, { target: { value: "" } });
 
-      expect(defaultProps.onModeChange).toHaveBeenCalledWith("voice");
+      expect(screen.getByLabelText("Hold to record")).toBeInTheDocument();
+      expect(screen.queryByLabelText("Send message")).not.toBeInTheDocument();
     });
 
-    it("should call onSendText when sending text", () => {
-      render(<VoiceBar {...defaultProps} mode="text" />);
+    it("should call onSendText when clicking send button", () => {
+      render(<VoiceBar {...defaultProps} />);
 
       const input = screen.getByPlaceholderText("Type a message...");
       fireEvent.change(input, { target: { value: "Hello world" } });
 
-      // Находим send button (последняя кнопка в text mode)
-      const buttons = screen.getAllByRole("button");
-      const sendButton = buttons[buttons.length - 1];
-      fireEvent.click(sendButton);
+      fireEvent.click(screen.getByLabelText("Send message"));
 
       expect(defaultProps.onSendText).toHaveBeenCalledWith("Hello world");
     });
 
     it("should send text on Enter key press", () => {
-      render(<VoiceBar {...defaultProps} mode="text" />);
+      render(<VoiceBar {...defaultProps} />);
 
       const input = screen.getByPlaceholderText("Type a message...");
       fireEvent.change(input, { target: { value: "Test message" } });
@@ -64,67 +64,54 @@ describe("VoiceBar", () => {
     });
 
     it("should not send empty text", () => {
-      render(<VoiceBar {...defaultProps} mode="text" />);
+      render(<VoiceBar {...defaultProps} />);
 
-      // Находим send button (последняя кнопка в text mode)
-      const buttons = screen.getAllByRole("button");
-      const sendButton = buttons[buttons.length - 1];
-      fireEvent.click(sendButton);
-
+      // With no text, send button is not visible, mic is shown
+      // But even if we somehow trigger, nothing should be sent
+      expect(screen.queryByLabelText("Send message")).not.toBeInTheDocument();
       expect(defaultProps.onSendText).not.toHaveBeenCalled();
     });
-  });
 
-  describe("Idle Voice Mode", () => {
-    it("should render hold-to-speak hint in voice mode", () => {
-      render(<VoiceBar {...defaultProps} mode="voice" />);
+    it("should not have mode toggle pills", () => {
+      render(<VoiceBar {...defaultProps} />);
 
-      expect(screen.getByText(/Hold to speak/)).toBeInTheDocument();
-    });
-
-    it("should render text mode pill", () => {
-      render(<VoiceBar {...defaultProps} mode="voice" />);
-
-      expect(screen.getByText(/⌨️ Text/)).toBeInTheDocument();
-    });
-
-    it("should call onModeChange when clicking text pill", () => {
-      render(<VoiceBar {...defaultProps} mode="voice" />);
-
-      fireEvent.click(screen.getByText(/⌨️ Text/));
-
-      expect(defaultProps.onModeChange).toHaveBeenCalledWith("text");
+      expect(screen.queryByText(/🎤 Voice/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/⌨️ Text/)).not.toBeInTheDocument();
     });
   });
 
   describe("Processing State", () => {
-    it("should render processing indicator when isProcessing is true", () => {
+    it("should render spinner when isProcessing is true", () => {
       render(<VoiceBar {...defaultProps} isProcessing={true} />);
 
-      expect(screen.getByText(/processing/i)).toBeInTheDocument();
+      expect(screen.getByLabelText("Processing...")).toBeInTheDocument();
     });
 
-    it("should not render input controls when processing", () => {
+    it("should render disabled text input when processing", () => {
       render(<VoiceBar {...defaultProps} isProcessing={true} />);
 
-      expect(screen.queryByText(/Hold to speak/)).not.toBeInTheDocument();
-      expect(screen.queryByPlaceholderText("Type a message...")).not.toBeInTheDocument();
+      const input = screen.getByPlaceholderText("Type a message...");
+      expect(input).toBeDisabled();
+    });
+
+    it("should not render mic button when processing", () => {
+      render(<VoiceBar {...defaultProps} isProcessing={true} />);
+
+      expect(screen.queryByLabelText("Hold to record")).not.toBeInTheDocument();
     });
   });
 
   describe("Recording State", () => {
-    it("should show cancel hint during recording", async () => {
-      render(<VoiceBar {...defaultProps} mode="voice" />);
+    it("should show stop button during recording", async () => {
+      render(<VoiceBar {...defaultProps} />);
 
-      // Найдём mic button (большая кнопка с микрофоном)
-      const buttons = screen.getAllByRole("button");
-      const micButton = buttons[buttons.length - 1]; // Последняя кнопка - mic
+      const micButton = screen.getByLabelText("Hold to record");
 
-      // Начинаем запись
+      // Start recording
       fireEvent.pointerDown(micButton);
 
       await waitFor(() => {
-        expect(screen.getByText(/cancel/i)).toBeInTheDocument();
+        expect(screen.getByLabelText("Stop recording")).toBeInTheDocument();
       });
     });
   });
