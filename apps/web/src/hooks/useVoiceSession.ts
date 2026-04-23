@@ -183,7 +183,12 @@ export function useVoiceSession(
    * Внутренняя функция подключения
    */
   const connectInternal = useCallback(() => {
-    // Закрываем существующее подключение
+    // L02: Guard against connecting when already connected or connecting
+    if (wsRef.current && wsRef.current.readyState <= WebSocket.OPEN) {
+      return;
+    }
+
+    // Закрываем существующее подключение (CLOSING state)
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;

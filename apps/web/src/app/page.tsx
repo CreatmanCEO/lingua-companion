@@ -75,6 +75,9 @@ export default function HomePage() {
     });
     return () => subscription.unsubscribe();
   }, []);
+  // L01: Guard against duplicate pending message fetches
+  const pendingFetchedRef = useRef(false);
+
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const scrollDirection = useScrollDirection(chatScrollRef);
   const headerHidden = scrollDirection === "down";
@@ -227,9 +230,10 @@ export default function HomePage() {
     }
   }, []);
 
-  // Fetch pending companion messages after auth
+  // Fetch pending companion messages after auth (L01: fetch only once)
   useEffect(() => {
-    if (!authSession || authSession === "loading") return;
+    if (!authSession || authSession === "loading" || pendingFetchedRef.current) return;
+    pendingFetchedRef.current = true;
     apiGet("/api/v1/push/pending")
       .then((resp) => {
         if (resp.messages?.length) {
@@ -250,9 +254,11 @@ export default function HomePage() {
     loadPersistedMessages();
   }, [loadFromLocalStorage, loadPersistedMessages]);
 
-  // Подключение к WebSocket при монтировании
+  // Подключение к WebSocket при монтировании (L02: only if not already connected)
   useEffect(() => {
-    connect();
+    if (!isConnected) {
+      connect();
+    }
     return () => {
       disconnect();
     };
@@ -260,12 +266,20 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // L04: Track whether onboarding config was already sent to backend
+  const onboardingSentRef = useRef(false);
+
   // Отправляем session_config при подключении и при смене companion/scenario
   useEffect(() => {
     if (isConnected) {
       const token = authSession && authSession !== "loading" ? authSession.access_token : undefined;
+      // L04: Only request onboarding once, and only if localStorage says not onboarded
+      const shouldOnboard = isOnboarding && !onboardingSentRef.current;
+      if (shouldOnboard) {
+        onboardingSentRef.current = true;
+      }
       sendConfig(activeCompanion, activeScenario, {
-        onboarding: isOnboarding,
+        onboarding: shouldOnboard,
         ...(token ? { token } : {}),
       });
     }
