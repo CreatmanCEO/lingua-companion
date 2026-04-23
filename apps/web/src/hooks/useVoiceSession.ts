@@ -125,7 +125,7 @@ interface UseVoiceSessionReturn {
   connect: () => void;
   disconnect: () => void;
   sendAudio: (audioBlob: Blob) => void;
-  sendConfig: (companion: string, scenario: object | null) => void;
+  sendConfig: (companion: string, scenario: object | null, extra?: Record<string, unknown>) => void;
   sendText: (text: string) => void;
 }
 
