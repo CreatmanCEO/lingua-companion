@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Sheet,
   SheetContent,
@@ -11,6 +11,7 @@ import { useSettingsStore, type TopicPreference, type Level } from "@/store/sett
 import type { CompanionName } from "@/store/chatStore";
 import type { VoiceKey } from "@/lib/edgeTts";
 import { playTts } from "@/lib/edgeTts";
+import { apiPost } from "@/lib/api";
 
 interface SettingsPanelProps {
   open: boolean;
@@ -70,6 +71,63 @@ export function SettingsPanel({ open, onOpenChange, onCompanionChange, userEmail
     companion, voice, rate, topicPreference, level, theme,
     setCompanion, setVoice, setRate, setTopicPreference, setLevel, setTheme,
   } = useSettingsStore();
+
+  // Push notification state
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setNotificationsEnabled(Notification.permission === "granted");
+    }
+  }, []);
+
+  const handleToggleNotifications = useCallback(async () => {
+    if (notificationsLoading) return;
+    setNotificationsLoading(true);
+    try {
+      if (notificationsEnabled) {
+        // Cannot programmatically revoke — just update UI state
+        setNotificationsEnabled(false);
+        setNotificationsLoading(false);
+        return;
+      }
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        setNotificationsLoading(false);
+        return;
+      }
+      const registration = await navigator.serviceWorker.ready;
+      const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      if (!vapidPublicKey) {
+        console.warn("VAPID public key not configured");
+        setNotificationsEnabled(true);
+        setNotificationsLoading(false);
+        return;
+      }
+      // Convert VAPID key to Uint8Array
+      const urlBase64ToUint8Array = (base64String: string) => {
+        const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+        const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+        const rawData = window.atob(base64);
+        return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
+      };
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+      });
+      const subJson = subscription.toJSON();
+      await apiPost("/api/v1/push/subscribe", {
+        endpoint: subJson.endpoint,
+        keys: subJson.keys,
+      });
+      setNotificationsEnabled(true);
+    } catch (err) {
+      console.error("Failed to enable notifications:", err);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  }, [notificationsEnabled, notificationsLoading]);
 
   const handleCompanionChange = useCallback(
     (name: CompanionName) => {
@@ -214,6 +272,34 @@ export function SettingsPanel({ open, onOpenChange, onCompanionChange, userEmail
               </OptionButton>
             </div>
           </section>
+
+          {/* Notifications */}
+          {"Notification" in (typeof window !== "undefined" ? window : {}) && (
+            <section>
+              <h3 className="text-size-sm font-semibold text-primary mb-2">Notifications</h3>
+              <button
+                type="button"
+                onClick={handleToggleNotifications}
+                disabled={notificationsLoading}
+                className={`flex items-center gap-3 w-full p-2.5 rounded-xl border transition-all ${
+                  notificationsEnabled
+                    ? "border-accent bg-accent/10"
+                    : "border-subtle bg-card hover:border-accent/30"
+                } ${notificationsLoading ? "opacity-50" : ""}`}
+              >
+                <div className={`w-10 h-5 rounded-full relative transition-colors ${
+                  notificationsEnabled ? "bg-accent" : "bg-muted/30"
+                }`}>
+                  <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                    notificationsEnabled ? "left-[22px]" : "left-0.5"
+                  }`} />
+                </div>
+                <span className="text-size-sm text-primary">
+                  {notificationsLoading ? "Enabling..." : notificationsEnabled ? "Enabled" : "Enable push notifications"}
+                </span>
+              </button>
+            </section>
+          )}
 
           {/* Account */}
           {onLogout && (

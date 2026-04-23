@@ -15,7 +15,7 @@ import { SessionSummary, type SessionSummaryData } from "@/components/SessionSum
 import { StatsScreen } from "@/components/StatsScreen";
 import { useChatStore } from "@/store/chatStore";
 import { useSettingsStore } from "@/store/settingsStore";
-import { apiPost } from "@/lib/api";
+import { apiPost, apiGet } from "@/lib/api";
 import { useVoiceSession } from "@/hooks/useVoiceSession";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
@@ -177,6 +177,30 @@ export default function HomePage() {
       clearStreamingText();
     },
   });
+
+  // Register Service Worker for push notifications
+  useEffect(() => {
+    if ("serviceWorker" in navigator && "PushManager" in window) {
+      navigator.serviceWorker.register("/sw.js").catch(console.error);
+    }
+  }, []);
+
+  // Fetch pending companion messages after auth
+  useEffect(() => {
+    if (!authSession || authSession === "loading" || authSession === ("demo" as unknown as Session)) return;
+    apiGet("/api/v1/push/pending")
+      .then((resp) => {
+        if (resp.messages?.length) {
+          for (const msg of resp.messages) {
+            addMessage({ sender: "companion", contentType: "text", text: msg.text });
+          }
+        }
+      })
+      .catch(() => {
+        // Silently ignore — pending messages are best-effort
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authSession]);
 
   // Загрузка настроек и сообщений из localStorage при монтировании
   useEffect(() => {
