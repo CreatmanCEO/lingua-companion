@@ -25,7 +25,7 @@ from app.agents.phrase_variants import get_variants, REQUIRED_STYLES
 from app.agents.companion import generate_response_stream, _FALLBACK_RESPONSE
 from app.agents.memory import (
     search_memory, get_user_facts, store_memory,
-    extract_facts, upsert_fact, track_vocab_gap, USER_ID,
+    extract_facts, upsert_fact, track_vocab_gap,
 )
 from app.agents.onboarding import (
     get_onboarding_response, extract_onboarding_data, is_onboarding_complete,
@@ -123,6 +123,11 @@ class PipelineOrchestrator:
     def __init__(self, session: dict):
         self.session = session
 
+    @property
+    def user_id(self) -> str:
+        """Real user_id from auth or 'anonymous' fallback."""
+        return self.session.get("user_id", "anonymous")
+
     # ------------------------------------------------------------------
     # Public pipelines
     # ------------------------------------------------------------------
@@ -161,7 +166,7 @@ class PipelineOrchestrator:
         # 3. Track vocab gaps from reconstruction changes
         for change in reconstruction_result.get("changes", []):
             asyncio.create_task(
-                track_vocab_gap(USER_ID, change.get("original", ""), change.get("corrected", "")),
+                track_vocab_gap(self.user_id, change.get("original", ""), change.get("corrected", "")),
                 name="vocab_gap",
             )
 
@@ -186,7 +191,7 @@ class PipelineOrchestrator:
             # 2. Track vocab gaps from reconstruction changes
             for change in reconstruction_result.get("changes", []):
                 asyncio.create_task(
-                    track_vocab_gap(USER_ID, change.get("original", ""), change.get("corrected", "")),
+                    track_vocab_gap(self.user_id, change.get("original", ""), change.get("corrected", "")),
                     name="vocab_gap",
                 )
 
@@ -227,7 +232,7 @@ class PipelineOrchestrator:
                 # Save facts to memory
                 for key, value in data.items():
                     asyncio.create_task(
-                        upsert_fact(USER_ID, key, str(value)),
+                        upsert_fact(self.user_id, key, str(value)),
                         name=f"onboarding_fact_{key}",
                     )
 
@@ -384,7 +389,7 @@ class PipelineOrchestrator:
         ]
 
         # Memory READ: search + facts -> context for companion
-        memory_context = await self._build_memory_context(USER_ID, corrected)
+        memory_context = await self._build_memory_context(self.user_id, corrected)
 
         # --- Adaptive level wiring (uses facts cached by _build_memory_context) ---
         user_level = "B1"  # default
@@ -433,6 +438,6 @@ class PipelineOrchestrator:
 
         # Memory WRITE (fire-and-forget, non-blocking)
         asyncio.create_task(
-            self._memory_write_behind(USER_ID, corrected, companion_text),
+            self._memory_write_behind(self.user_id, corrected, companion_text),
             name="memory_write",
         )
