@@ -164,6 +164,7 @@ interface ChatState {
   clearMessages: () => void;
   startScenario: (scenarioId: string) => void;
   endScenario: () => void;
+  loadPersistedMessages: () => void;
 }
 
 /**
@@ -172,10 +173,67 @@ interface ChatState {
 const MAX_MESSAGES = 100;
 
 /**
+ * Максимальное количество сообщений для localStorage
+ */
+const MAX_PERSISTED_MESSAGES = 200;
+
+/**
  * Генерация уникального ID
  */
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+}
+
+/**
+ * Persist messages to localStorage (strip audioBlob, limit count)
+ */
+function persistMessages(messages: Message[]) {
+  try {
+    const serializable = messages.slice(-MAX_PERSISTED_MESSAGES).map(m => ({
+      ...m,
+      audioBlob: undefined,
+    }));
+    localStorage.setItem("lc-messages", JSON.stringify(serializable));
+  } catch {
+    // localStorage full or unavailable
+  }
+}
+
+/**
+ * Load messages from localStorage
+ */
+function loadMessages(): Message[] {
+  try {
+    const raw = localStorage.getItem("lc-messages");
+    if (!raw) return [];
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Persist translations to localStorage
+ */
+function persistTranslations(translatedTexts: Record<string, string>) {
+  try {
+    localStorage.setItem("lc-translations", JSON.stringify(translatedTexts));
+  } catch {
+    // localStorage full or unavailable
+  }
+}
+
+/**
+ * Load translations from localStorage
+ */
+function loadTranslations(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem("lc-translations");
+    if (!raw) return {};
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
 }
 
 /**
@@ -210,25 +268,30 @@ export const useChatStore = create<ChatState>((set) => ({
           if (msg.audioBlob) msg.audioBlob = undefined;
         }
       }
+      persistMessages(newMessages);
       return { messages: newMessages };
     });
     return id;
   },
 
   updateMessage: (id, updates) =>
-    set((state) => ({
-      messages: state.messages.map((msg) =>
+    set((state) => {
+      const newMessages = state.messages.map((msg) =>
         msg.id === id ? { ...msg, ...updates } : msg
-      ),
-    })),
+      );
+      persistMessages(newMessages);
+      return { messages: newMessages };
+    }),
 
   setProcessingMessageId: (id) =>
     set({ processingMessageId: id }),
 
   setTranslation: (id, text) =>
-    set((state) => ({
-      translatedTexts: { ...state.translatedTexts, [id]: text },
-    })),
+    set((state) => {
+      const newTranslations = { ...state.translatedTexts, [id]: text };
+      persistTranslations(newTranslations);
+      return { translatedTexts: newTranslations };
+    }),
 
   setActiveCompanion: (name) =>
     set({ activeCompanion: name }),
@@ -242,13 +305,26 @@ export const useChatStore = create<ChatState>((set) => ({
   clearStreamingText: () =>
     set({ streamingCompanionText: "" }),
 
-  clearMessages: () =>
-    set({ messages: [], translatedTexts: {} }),
+  clearMessages: () => {
+    try {
+      localStorage.removeItem("lc-messages");
+      localStorage.removeItem("lc-translations");
+    } catch {
+      // ignore
+    }
+    set({ messages: [], translatedTexts: {} });
+  },
 
   startScenario: (scenarioId) =>
     set((state) => {
       const context = SCENARIO_CONTEXTS[scenarioId];
       if (!context) return state;
+      try {
+        localStorage.removeItem("lc-messages");
+        localStorage.removeItem("lc-translations");
+      } catch {
+        // ignore
+      }
       return {
         activeScenario: context,
         messages: [], // Очищаем историю
@@ -260,5 +336,13 @@ export const useChatStore = create<ChatState>((set) => ({
     set({
       activeScenario: null,
       // messages НЕ очищаем — сохраняем историю
+    }),
+
+  loadPersistedMessages: () =>
+    set(() => {
+      const messages = loadMessages();
+      const translatedTexts = loadTranslations();
+      if (messages.length === 0) return {};
+      return { messages, translatedTexts };
     }),
 }));

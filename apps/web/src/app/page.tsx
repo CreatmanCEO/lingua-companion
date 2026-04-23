@@ -70,6 +70,7 @@ export default function HomePage() {
     activeScenario,
     startScenario,
     endScenario,
+    loadPersistedMessages,
   } = useChatStore();
 
   // WebSocket session
@@ -149,10 +150,11 @@ export default function HomePage() {
     },
   });
 
-  // Загрузка настроек из localStorage при монтировании
+  // Загрузка настроек и сообщений из localStorage при монтировании
   useEffect(() => {
     loadFromLocalStorage();
-  }, [loadFromLocalStorage]);
+    loadPersistedMessages();
+  }, [loadFromLocalStorage, loadPersistedMessages]);
 
   // Подключение к WebSocket при монтировании
   useEffect(() => {
