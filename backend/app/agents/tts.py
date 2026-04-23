@@ -119,12 +119,12 @@ async def _elevenlabs_tts(text: str, voice_key: str, rate: str) -> bytes:
     from elevenlabs import AsyncElevenLabs
 
     client = AsyncElevenLabs(api_key=key)
-    response = await client.text_to_speech.convert(
+    response = client.text_to_speech.convert(
         voice_id=voice_id,
         text=text,
         model_id="eleven_multilingual_v2",
     )
-    # response is an async iterator of bytes chunks
+    # response is an async generator of bytes chunks
     chunks = []
     async for chunk in response:
         chunks.append(chunk)
