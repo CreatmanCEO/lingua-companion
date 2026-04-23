@@ -191,9 +191,9 @@ export function VoiceBar({
           placeholder="Type a message..."
           disabled={isProcessing}
           className={cn(
-            "flex-1 bg-input border border-subtle rounded-full",
+            "flex-1 bg-input border border-subtle rounded-lg",
             "px-3 py-1.5 text-sm text-primary h-9",
-            "placeholder:text-muted outline-none",
+            "placeholder:text-white/30 outline-none",
             "focus:border-accent transition-colors",
             isProcessing && "opacity-50 cursor-not-allowed"
           )}

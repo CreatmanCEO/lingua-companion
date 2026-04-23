@@ -122,7 +122,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
-              className="w-full px-3 py-2.5 rounded-xl border border-subtle bg-card text-primary text-size-sm placeholder:text-muted focus:outline-none focus:border-accent transition-colors"
+              className="w-full px-3 py-2.5 rounded-xl border border-subtle bg-card text-primary text-size-sm placeholder:text-white/30 focus:outline-none focus:border-accent transition-colors"
               placeholder="you@example.com"
             />
           </div>
@@ -139,7 +139,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
               required
               autoComplete={mode === "login" ? "current-password" : "new-password"}
               minLength={6}
-              className="w-full px-3 py-2.5 rounded-xl border border-subtle bg-card text-primary text-size-sm placeholder:text-muted focus:outline-none focus:border-accent transition-colors"
+              className="w-full px-3 py-2.5 rounded-xl border border-subtle bg-card text-primary text-size-sm placeholder:text-white/30 focus:outline-none focus:border-accent transition-colors"
               placeholder="Min 6 characters"
             />
           </div>
