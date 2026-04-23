@@ -1,8 +1,8 @@
 "use client";
 
-import React from "react";
-import { Settings, BookOpen, LogOut, BarChart3 } from "lucide-react";
-import type { CompanionName } from "@/store/chatStore";
+import React, { useState, useEffect } from "react";
+import { Settings, BookOpen, LogOut, BarChart3, MoreHorizontal } from "lucide-react";
+import type { CompanionName, ScenarioContext } from "@/store/chatStore";
 
 /**
  * Props для compact Header
@@ -16,6 +16,7 @@ interface HeaderProps {
   onStatsClick?: () => void;
   onEndSession?: () => void;
   scenarioName?: string;
+  scenario?: ScenarioContext | null;
   onEndScenario?: () => void;
 }
 
@@ -48,8 +49,19 @@ export function Header({
   onStatsClick,
   onEndSession,
   scenarioName,
+  scenario,
   onEndScenario,
 }: HeaderProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = () => setMenuOpen(false);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [menuOpen]);
+
   return (
     <header className="bg-surface border-b border-subtle flex-shrink-0 relative z-10">
       <div className="pt-[env(safe-area-inset-top)] px-4">
@@ -80,34 +92,50 @@ export function Header({
             />
           </div>
 
-          {/* Right: End Session + Stats + Library + Settings */}
+          {/* Right: ⋯ dropdown menu + Settings gear */}
           <div className="flex items-center gap-1">
-            {onEndSession && (
+            {/* Dropdown menu (Stats, Library, End Session) */}
+            <div className="relative">
               <button
                 type="button"
-                onClick={onEndSession}
-                className="w-9 h-9 rounded-[10px] flex items-center justify-center text-secondary hover:text-red-400 transition-all active:scale-[0.92]"
-                aria-label="End Session"
+                onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
+                className="w-9 h-9 rounded-[10px] flex items-center justify-center text-secondary hover:text-primary transition-all active:scale-[0.92]"
+                aria-label="More options"
               >
-                <LogOut className="w-[18px] h-[18px]" />
+                <MoreHorizontal className="w-[18px] h-[18px]" />
               </button>
-            )}
-            <button
-              type="button"
-              onClick={onStatsClick}
-              className="w-9 h-9 rounded-[10px] flex items-center justify-center text-secondary hover:text-primary transition-all active:scale-[0.92]"
-              aria-label="Stats"
-            >
-              <BarChart3 className="w-[18px] h-[18px]" />
-            </button>
-            <button
-              type="button"
-              onClick={onLibraryClick}
-              className="w-9 h-9 rounded-[10px] flex items-center justify-center text-secondary hover:text-primary transition-all active:scale-[0.92]"
-              aria-label="Phrase Library"
-            >
-              <BookOpen className="w-[18px] h-[18px]" />
-            </button>
+              {menuOpen && (
+                <div className="absolute right-0 top-full mt-1 bg-surface border border-subtle rounded-lg shadow-xl py-1 min-w-[180px] z-50">
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onStatsClick?.(); setMenuOpen(false); }}
+                    className="w-full px-3 py-2 text-left text-sm text-secondary hover:bg-void flex items-center gap-2 transition-colors"
+                  >
+                    <BarChart3 className="w-4 h-4" /> Stats & Progress
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onLibraryClick?.(); setMenuOpen(false); }}
+                    className="w-full px-3 py-2 text-left text-sm text-secondary hover:bg-void flex items-center gap-2 transition-colors"
+                  >
+                    <BookOpen className="w-4 h-4" /> Phrase Library
+                  </button>
+                  {onEndSession && (
+                    <>
+                      <div className="border-t border-subtle my-1" />
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onEndSession(); setMenuOpen(false); }}
+                        className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-void flex items-center gap-2 transition-colors"
+                      >
+                        <LogOut className="w-4 h-4" /> End Session
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+            {/* Settings gear — always visible */}
             <button
               type="button"
               onClick={onSettingsClick}
@@ -119,16 +147,28 @@ export function Header({
           </div>
         </div>
 
-        {/* Scenario bar (optional) */}
+        {/* Scenario bar (optional) — with role labels */}
         {scenarioName && (
           <div className="flex items-center justify-between pb-2 -mt-1">
-            <span className="text-size-xs text-accent font-medium">
-              {scenarioName}
-            </span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-size-xs text-accent font-medium">
+                {scenarioName}
+              </span>
+              {scenario?.userRole && (
+                <span className="text-size-xs text-blue-400/60">
+                  You: {scenario.userRole}
+                </span>
+              )}
+              {scenario?.companionRole && (
+                <span className="text-size-xs text-green-400/60">
+                  {companionName}: {scenario.companionRole}
+                </span>
+              )}
+            </div>
             <button
               type="button"
               onClick={onEndScenario}
-              className="text-size-xs text-muted hover:text-secondary transition-colors"
+              className="text-size-xs text-muted hover:text-secondary transition-colors flex-shrink-0"
             >
               Exit
             </button>
