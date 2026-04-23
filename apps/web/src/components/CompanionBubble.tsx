@@ -41,88 +41,103 @@ function AvatarSmall() {
 }
 
 /**
- * Rich Link Card из прототипа
+ * OpenGraph data for rich link previews
  */
-interface RichCardProps {
+interface OgData {
   title: string;
   description: string;
-  source: string;
-  emoji?: string;
-  readTime?: string;
-  onClick?: () => void;
+  image: string;
+  favicon: string;
+  url: string;
 }
 
-function RichCard({
-  title,
-  description,
-  source,
-  emoji = "⚙️",
-  readTime = "4 min read",
-  onClick,
-}: RichCardProps) {
+/**
+ * Extract first URL from text
+ */
+function extractUrl(text: string): string | null {
+  const match = text.match(/https?:\/\/[^\s)]+/);
+  return match ? match[0] : null;
+}
+
+/**
+ * RichLinkCard — auto-fetched OpenGraph preview for URLs
+ */
+function RichLinkCard({ url }: { url: string }) {
+  const [ogData, setOgData] = useState<OgData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+    fetch(`${API_URL}/api/v1/opengraph?url=${encodeURIComponent(url)}`)
+      .then((r) => r.json())
+      .then((data) => setOgData(data))
+      .catch(() => setOgData({ title: url, description: "", image: "", favicon: "", url }))
+      .finally(() => setLoading(false));
+  }, [url]);
+
+  if (loading) {
+    return (
+      <div className="mt-2 rounded-lg border border-subtle p-2.5">
+        <div className="text-muted text-size-xs">Loading preview...</div>
+      </div>
+    );
+  }
+
+  if (!ogData) return null;
+
+  let hostname = url;
+  try {
+    hostname = new URL(url).hostname;
+  } catch {
+    // keep raw url as hostname
+  }
+
   return (
-    <div
-      className="mt-2 rounded-xl overflow-hidden border border-subtle bg-card cursor-pointer transition-all hover:border-accent/20 hover:translate-y-[-1px] active:scale-[0.98]"
+    <a
+      href={ogData.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="block mt-2 rounded-xl overflow-hidden border border-subtle bg-card transition-all hover:border-accent/20 hover:translate-y-[-1px] active:scale-[0.98]"
       style={{ boxShadow: "var(--shadow-card)" }}
-      onClick={onClick}
     >
-      {/* Image area */}
-      <div
-        className="w-full h-[88px] flex items-center justify-center relative overflow-hidden"
-        style={{
-          background: "linear-gradient(135deg, #1a1a3a 0%, #2a1a4a 50%, #1a2a4a 100%)",
-          fontSize: "32px",
-        }}
-      >
-        {emoji}
-        <div
-          className="absolute inset-0"
-          style={{
-            background: "linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.35))",
+      {ogData.image && (
+        <img
+          src={ogData.image}
+          alt=""
+          className="w-full h-[88px] object-cover"
+          onError={(e) => {
+            (e.target as HTMLImageElement).style.display = "none";
           }}
         />
-      </div>
-
-      {/* Body */}
+      )}
       <div className="px-3 pt-[10px] pb-3">
-        {/* Source */}
         <div className="flex items-center gap-[5px] text-size-xs text-muted mb-1">
-          <div
-            className="w-[14px] h-[14px] rounded-[3px] bg-accent-soft flex items-center justify-center"
-            style={{ fontSize: "8px", fontWeight: 700, color: "var(--accent)" }}
-          >
-            {source[0]?.toUpperCase()}
-          </div>
-          <span>{source}</span>
+          {ogData.favicon && (
+            <img src={ogData.favicon} alt="" className="w-[14px] h-[14px] rounded-sm" />
+          )}
+          <span>{hostname}</span>
         </div>
-
-        {/* Title */}
         <div
-          className="text-primary font-semibold leading-[1.4] mb-1"
+          className="text-primary font-semibold leading-[1.4] mb-1 line-clamp-2"
           style={{ fontSize: "13px" }}
         >
-          {title}
+          {ogData.title}
         </div>
-
-        {/* Description */}
-        <div
-          className="text-secondary leading-[1.5] line-clamp-2"
-          style={{ fontSize: "11px" }}
-        >
-          {description}
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between mt-2">
+        {ogData.description && (
+          <div
+            className="text-secondary leading-[1.5] line-clamp-2"
+            style={{ fontSize: "11px" }}
+          >
+            {ogData.description}
+          </div>
+        )}
+        <div className="mt-2">
           <span className="text-accent font-medium" style={{ fontSize: "11px" }}>
-            Read article ↗
-          </span>
-          <span className="text-muted" style={{ fontSize: "10px" }}>
-            {readTime}
+            Open link &#8599;
           </span>
         </div>
       </div>
-    </div>
+    </a>
   );
 }
 
@@ -204,8 +219,8 @@ export function CompanionBubble({
     minute: "2-digit",
   }).format(message.timestamp);
 
-  // Check if message has rich card data (can be extended later)
-  const hasRichCard = message.text.includes("Saw this") || message.text.includes("article");
+  // Extract URL from message text for rich link preview
+  const detectedUrl = extractUrl(message.text);
 
   return (
     <div className="flex gap-[10px] items-start mb-3 animate-fade-slide-up">
@@ -237,16 +252,9 @@ export function CompanionBubble({
             </p>
           )}
 
-          {/* Rich card (demo - показываем для первого сообщения) */}
-          {hasRichCard && (
-            <RichCard
-              emoji="⚙️"
-              source="github.blog"
-              title="Rust overtakes Go in backend benchmarks — Netflix case study"
-              description="Netflix's infra team migrated 40 services to Rust with zero downtime and 3× throughput gains."
-              readTime="4 min read"
-              onClick={() => console.log("Opening article...")}
-            />
+          {/* Rich link card — auto-preview URLs in message */}
+          {detectedUrl && !isStreaming && (
+            <RichLinkCard url={detectedUrl} />
           )}
 
           {/* Actions — hidden during streaming */}
