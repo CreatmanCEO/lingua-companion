@@ -1,3 +1,6 @@
+import asyncio
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -8,6 +11,23 @@ from app.api.routes.ws import router as ws_router
 from app.api.routes.tts import router as tts_router
 from app.api.routes.translate import router as translate_router
 from app.api.routes.auth import router as auth_router
+from app.api.routes.phrases import router as phrases_router
+
+logger = logging.getLogger(__name__)
+
+
+async def _topic_discovery_loop():
+    """Fetch topics every 4 hours."""
+    from app.agents.topic_discovery import fetch_and_store_topics
+
+    while True:
+        try:
+            from app.agents.memory import _pool
+            if _pool:
+                await fetch_and_store_topics(_pool)
+        except Exception:
+            logger.error("Topic discovery loop failed", exc_info=True)
+        await asyncio.sleep(4 * 3600)  # 4 hours
 
 
 @asynccontextmanager
@@ -15,8 +35,11 @@ async def lifespan(app: FastAPI):
     # Startup
     setup_logging(debug=settings.DEBUG)
     print(f"[START] {settings.APP_NAME} v{settings.VERSION} starting...")
+    # Start background topic discovery task
+    topic_task = asyncio.create_task(_topic_discovery_loop())
     yield
     # Shutdown
+    topic_task.cancel()
     from app.agents.memory import close_pool
     await close_pool()
     print("[STOP] Shutting down...")
@@ -45,6 +68,7 @@ app.include_router(ws_router)
 app.include_router(auth_router)
 app.include_router(tts_router)
 app.include_router(translate_router)
+app.include_router(phrases_router)
 
 
 @app.get("/health")

@@ -30,6 +30,7 @@ from app.agents.memory import (
 from app.agents.onboarding import (
     get_onboarding_response, extract_onboarding_data, is_onboarding_complete,
 )
+from app.agents.topic_discovery import get_next_topic
 
 logger = logging.getLogger(__name__)
 
@@ -310,6 +311,7 @@ class PipelineOrchestrator:
         memory_context: str | None = None,
         user_level: str = "B1",
         repeated_errors: list | None = None,
+        topic: dict | None = None,
     ) -> str:
         """Stream companion tokens via WS. Returns full text."""
         companion_name = self.session.get("companion", "Alex")
@@ -324,6 +326,7 @@ class PipelineOrchestrator:
                 memory_context=memory_context,
                 user_level=user_level,
                 repeated_errors=repeated_errors,
+                topic=topic,
             ):
                 if event["type"] == "token":
                     await send_event(websocket, "companion_token", {
@@ -397,6 +400,16 @@ class PipelineOrchestrator:
         if cached_facts:
             user_level = cached_facts.get("level", "B1")
 
+        # Topic injection: every 5th message, fetch a fresh topic
+        topic = None
+        msg_count = len(self.session.get("history", []))
+        if msg_count > 0 and msg_count % 5 == 0:
+            try:
+                from app.agents.memory import _pool
+                topic = await get_next_topic(_pool, self.user_id)
+            except Exception:
+                logger.debug("Topic fetch skipped", exc_info=True)
+
         # Start companion streaming
         companion_task = asyncio.create_task(
             self._stream_companion(
@@ -404,6 +417,7 @@ class PipelineOrchestrator:
                 memory_context=memory_context,
                 user_level=user_level,
                 repeated_errors=repeated_errors,
+                topic=topic,
             ),
             name="companion_stream",
         )
