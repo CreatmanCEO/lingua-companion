@@ -15,6 +15,7 @@ from typing import Optional
 
 import httpx
 import litellm
+from app.prompts import PromptBuilder
 
 try:
     import asyncpg
@@ -224,22 +225,15 @@ async def extract_facts(text: str) -> dict:
     Возвращает dict с ключами: name, level, specialty, interests, etc.
     """
     try:
+        system_prompt, params = PromptBuilder("fact_extraction").build()
         response = await litellm.acompletion(
-            model=settings.LLM_MODEL,
+            model=params["model"],
             messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "Extract user facts from the text. Return JSON with keys: "
-                        "name, level, specialty, interests, tech_stack. "
-                        "Only include facts that are explicitly stated. "
-                        "Return empty {} if no facts found."
-                    ),
-                },
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": text},
             ],
-            temperature=0.0,
-            max_tokens=100,
+            temperature=params["temperature"],
+            max_tokens=params["max_tokens"],
         )
 
         content = response.choices[0].message.content.strip()
