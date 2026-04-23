@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from app.core.config import settings
+from app.core.logging_config import setup_logging
 from app.api.routes.ws import router as ws_router
 from app.api.routes.tts import router as tts_router
 
@@ -10,6 +11,7 @@ from app.api.routes.tts import router as tts_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    setup_logging(debug=settings.DEBUG)
     print(f"[START] {settings.APP_NAME} v{settings.VERSION} starting...")
     yield
     # Shutdown
