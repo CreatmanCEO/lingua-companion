@@ -2,6 +2,7 @@
 Тесты WebSocket endpoint /ws/session -- LinguaCompanion
 
 Все внешние агенты (STT, Reconstruction, Variants, Companion) замоканы.
+Pipeline logic now lives in app.agents.orchestrator — mocks target that module.
 """
 import json
 import pytest
@@ -40,6 +41,9 @@ MOCK_COMPANION_RESULT = {
     "companion": "Alex",
 }
 
+# Mock target prefix: pipeline logic is in orchestrator
+_ORCH = "app.agents.orchestrator"
+
 
 async def _mock_companion_stream(*args, **kwargs):
     """Мок async generator для generate_response_stream."""
@@ -58,12 +62,12 @@ async def _mock_companion_stream_fail(*args, **kwargs):
 def _patch_all_agents():
     """Контекстный менеджер для мока всех агентов + memory."""
     return (
-        patch("app.api.routes.ws.transcribe", new_callable=AsyncMock),
-        patch("app.api.routes.ws.reconstruct", new_callable=AsyncMock),
-        patch("app.api.routes.ws.get_variants", new_callable=AsyncMock),
-        patch("app.api.routes.ws.generate_response_stream", side_effect=_mock_companion_stream),
-        patch("app.api.routes.ws._build_memory_context", new_callable=AsyncMock, return_value=None),
-        patch("app.api.routes.ws._memory_write_behind", new_callable=AsyncMock),
+        patch(f"{_ORCH}.transcribe", new_callable=AsyncMock),
+        patch(f"{_ORCH}.reconstruct", new_callable=AsyncMock),
+        patch(f"{_ORCH}.get_variants", new_callable=AsyncMock),
+        patch(f"{_ORCH}.generate_response_stream", side_effect=_mock_companion_stream),
+        patch(f"{_ORCH}.PipelineOrchestrator._build_memory_context", new_callable=AsyncMock, return_value=None),
+        patch(f"{_ORCH}.PipelineOrchestrator._memory_write_behind", new_callable=AsyncMock),
     )
 
 
@@ -82,7 +86,7 @@ def test_websocket_accepts_connection(test_client):
 def test_websocket_handles_empty_audio(test_client):
     """Empty audio returns error event after stt_result."""
     with patch(
-        "app.api.routes.ws.transcribe", new_callable=AsyncMock
+        f"{_ORCH}.transcribe", new_callable=AsyncMock
     ) as mock_stt:
         mock_stt.return_value = {
             "text": "", "language": "en",
@@ -140,7 +144,7 @@ def test_websocket_full_pipeline(test_client):
 def test_websocket_stt_exception(test_client):
     """STT exception returns error event."""
     with patch(
-        "app.api.routes.ws.transcribe", new_callable=AsyncMock
+        f"{_ORCH}.transcribe", new_callable=AsyncMock
     ) as mock_stt:
         mock_stt.side_effect = Exception("STT service unavailable")
 
@@ -155,7 +159,7 @@ def test_websocket_stt_exception(test_client):
 def test_websocket_client_disconnect(test_client):
     """Client disconnect is handled gracefully."""
     with patch(
-        "app.api.routes.ws.transcribe", new_callable=AsyncMock
+        f"{_ORCH}.transcribe", new_callable=AsyncMock
     ) as mock_stt:
         async def slow_stt(*args, **kwargs):
             import asyncio
@@ -184,12 +188,12 @@ def test_websocket_session_config(test_client):
         yield {"type": "token", "delta": "Let's review!"}
         yield {"type": "done", "text": "Let's review!", "companion": companion}
 
-    p1 = patch("app.api.routes.ws.transcribe", new_callable=AsyncMock)
-    p2 = patch("app.api.routes.ws.reconstruct", new_callable=AsyncMock)
-    p3 = patch("app.api.routes.ws.get_variants", new_callable=AsyncMock)
-    p4 = patch("app.api.routes.ws.generate_response_stream", side_effect=_morgan_stream)
-    p5 = patch("app.api.routes.ws._build_memory_context", new_callable=AsyncMock, return_value=None)
-    p6 = patch("app.api.routes.ws._memory_write_behind", new_callable=AsyncMock)
+    p1 = patch(f"{_ORCH}.transcribe", new_callable=AsyncMock)
+    p2 = patch(f"{_ORCH}.reconstruct", new_callable=AsyncMock)
+    p3 = patch(f"{_ORCH}.get_variants", new_callable=AsyncMock)
+    p4 = patch(f"{_ORCH}.generate_response_stream", side_effect=_morgan_stream)
+    p5 = patch(f"{_ORCH}.PipelineOrchestrator._build_memory_context", new_callable=AsyncMock, return_value=None)
+    p6 = patch(f"{_ORCH}.PipelineOrchestrator._memory_write_behind", new_callable=AsyncMock)
 
     with p1 as mock_stt, p2 as mock_recon, p3 as mock_variants, p4, p5, p6:
         mock_stt.return_value = MOCK_STT_RESULT
@@ -285,12 +289,12 @@ def test_websocket_reconstruction_failure_degrades(test_client):
 
 def test_websocket_companion_failure_degrades(test_client):
     """При ошибке companion stream pipeline отправляет fallback ответ."""
-    p1 = patch("app.api.routes.ws.transcribe", new_callable=AsyncMock)
-    p2 = patch("app.api.routes.ws.reconstruct", new_callable=AsyncMock)
-    p3 = patch("app.api.routes.ws.get_variants", new_callable=AsyncMock)
-    p4 = patch("app.api.routes.ws.generate_response_stream", side_effect=_mock_companion_stream_fail)
-    p5 = patch("app.api.routes.ws._build_memory_context", new_callable=AsyncMock, return_value=None)
-    p6 = patch("app.api.routes.ws._memory_write_behind", new_callable=AsyncMock)
+    p1 = patch(f"{_ORCH}.transcribe", new_callable=AsyncMock)
+    p2 = patch(f"{_ORCH}.reconstruct", new_callable=AsyncMock)
+    p3 = patch(f"{_ORCH}.get_variants", new_callable=AsyncMock)
+    p4 = patch(f"{_ORCH}.generate_response_stream", side_effect=_mock_companion_stream_fail)
+    p5 = patch(f"{_ORCH}.PipelineOrchestrator._build_memory_context", new_callable=AsyncMock, return_value=None)
+    p6 = patch(f"{_ORCH}.PipelineOrchestrator._memory_write_behind", new_callable=AsyncMock)
 
     with p1 as mock_stt, p2 as mock_recon, p3 as mock_variants, p4, p5, p6:
         mock_stt.return_value = MOCK_STT_RESULT
