@@ -2,8 +2,10 @@
 
 import React, { useState, useCallback, useEffect } from "react";
 import type { Message, CompanionName } from "@/store/chatStore";
+import { useChatStore } from "@/store/chatStore";
 import { ActionPill } from "@/components/ui/ActionPill";
 import { playTts, stopTts } from "@/lib/edgeTts";
+import { translateText } from "@/lib/translate";
 
 /**
  * Props для CompanionBubble
@@ -142,6 +144,10 @@ export function CompanionBubble({
   onListen,
 }: CompanionBubbleProps) {
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [showTranslation, setShowTranslation] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
+  const translatedTexts = useChatStore((s) => s.translatedTexts);
+  const setTranslation = useChatStore((s) => s.setTranslation);
 
   // Отменяем TTS при unmount
   useEffect(() => {
@@ -164,6 +170,31 @@ export function CompanionBubble({
     playTts(message.text)
       .finally(() => setIsSpeaking(false));
   }, [message.text, isSpeaking, onListen]);
+
+  /**
+   * Обработка перевода
+   */
+  const handleTranslate = useCallback(async () => {
+    if (showTranslation) {
+      setShowTranslation(false);
+      return;
+    }
+
+    // Check cache first
+    if (translatedTexts[message.id]) {
+      setShowTranslation(true);
+      return;
+    }
+
+    setIsTranslating(true);
+    try {
+      const translated = await translateText(message.text, "ru");
+      setTranslation(message.id, translated);
+      setShowTranslation(true);
+    } finally {
+      setIsTranslating(false);
+    }
+  }, [message.id, message.text, showTranslation, translatedTexts, setTranslation]);
 
   /**
    * Форматирование времени сообщения
@@ -199,6 +230,13 @@ export function CompanionBubble({
             )}
           </p>
 
+          {/* Translation */}
+          {showTranslation && translatedTexts[message.id] && (
+            <p className="text-secondary text-size-sm leading-[1.5] mt-1 pt-1 border-t border-subtle italic">
+              {translatedTexts[message.id]}
+            </p>
+          )}
+
           {/* Rich card (demo - показываем для первого сообщения) */}
           {hasRichCard && (
             <RichCard
@@ -216,6 +254,9 @@ export function CompanionBubble({
             <div className="flex gap-[6px] mt-[10px] flex-wrap">
               <ActionPill onClick={handleListen} isPlaying={isSpeaking}>
                 {isSpeaking ? "⏸ Playing" : "▶ Listen"}
+              </ActionPill>
+              <ActionPill onClick={handleTranslate} disabled={isTranslating}>
+                {isTranslating ? "..." : showTranslation ? "EN" : "RU"}
               </ActionPill>
             </div>
           )}

@@ -4,6 +4,7 @@ import React, { useState, useCallback, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import type { VariantsResult, VariantItem } from "@/hooks/useVoiceSession";
 import { playTts, stopTts } from "@/lib/edgeTts";
+import { translateText } from "@/lib/translate";
 
 /**
  * Извлечь текст из варианта (поддержка string и {text, context})
@@ -17,6 +18,13 @@ function getVariantText(v: string | VariantItem): string {
  */
 function getVariantContext(v: string | VariantItem): string {
   return typeof v === "string" ? "" : (v.context || "");
+}
+
+/**
+ * Извлечь translation из варианта (если есть)
+ */
+function getVariantTranslation(v: string | VariantItem): string {
+  return typeof v === "string" ? "" : (v.translation || "");
 }
 
 /**
@@ -85,6 +93,7 @@ interface VariantCardProps {
   style: VariantStyle;
   phrase: string;
   context?: string;
+  translation?: string;
   isSaved: boolean;
   onSave: () => void;
   onPlay: () => void;
@@ -98,12 +107,28 @@ function VariantCard({
   style,
   phrase,
   context,
+  translation,
   isSaved,
   onSave,
   onPlay,
   isPlaying,
 }: VariantCardProps) {
   const config = VARIANT_CONFIGS[style];
+  const [localTranslation, setLocalTranslation] = useState<string>("");
+  const [isTranslating, setIsTranslating] = useState(false);
+
+  const displayTranslation = translation || localTranslation;
+
+  const handleTranslate = useCallback(async () => {
+    if (displayTranslation || isTranslating) return;
+    setIsTranslating(true);
+    try {
+      const result = await translateText(phrase, "ru");
+      setLocalTranslation(result);
+    } finally {
+      setIsTranslating(false);
+    }
+  }, [phrase, displayTranslation, isTranslating]);
 
   return (
     <div
@@ -141,6 +166,26 @@ function VariantCard({
       >
         &ldquo;{phrase}&rdquo;
       </div>
+
+      {/* Translation */}
+      {displayTranslation ? (
+        <div
+          className="text-muted leading-[1.4] mb-[7px] italic"
+          style={{ fontSize: "10px" }}
+        >
+          {displayTranslation}
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={handleTranslate}
+          disabled={isTranslating}
+          className="text-accent mb-[7px] transition-opacity hover:opacity-80"
+          style={{ fontSize: "10px" }}
+        >
+          {isTranslating ? "..." : "RU"}
+        </button>
+      )}
 
       {/* Subtitle — context from backend or fallback */}
       <div
@@ -198,6 +243,7 @@ function VariantCard({
  */
 interface VariantCardsProps {
   variants: VariantsResult;
+  messageId?: string;
   onSave?: (style: VariantStyle, phrase: string) => void;
   className?: string;
 }
@@ -212,6 +258,7 @@ interface VariantCardsProps {
  */
 export function VariantCards({
   variants,
+  messageId: _messageId,
   onSave,
   className,
 }: VariantCardsProps) {
@@ -336,6 +383,7 @@ export function VariantCards({
               style={style}
               phrase={getVariantText(variants[style])}
               context={getVariantContext(variants[style])}
+              translation={getVariantTranslation(variants[style])}
               isSaved={savedStyles.has(style)}
               onSave={() => handleSave(style, getVariantText(variants[style]))}
               onPlay={() => handlePlay(style, getVariantText(variants[style]))}

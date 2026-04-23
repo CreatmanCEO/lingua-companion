@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useEffect, useRef, useMemo, forwardRef } from "react";
+import React, { useEffect, useRef, forwardRef } from "react";
 import { UserBubble } from "@/components/UserBubble";
 import { CompanionBubble } from "@/components/CompanionBubble";
 import { ReconstructionBlock } from "@/components/ReconstructionBlock";
 import { VariantCards } from "@/components/VariantCards";
 import type { Message, CompanionName } from "@/store/chatStore";
-import type { ReconstructionResult, VariantsResult } from "@/hooks/useVoiceSession";
 
 /**
  * Props для ChatArea
@@ -14,9 +13,7 @@ import type { ReconstructionResult, VariantsResult } from "@/hooks/useVoiceSessi
 interface ChatAreaProps {
   messages: Message[];
   companionName: CompanionName;
-  currentReconstruction: ReconstructionResult | null;
-  currentVariants: VariantsResult | null;
-  isAnalysing: boolean;
+  processingMessageId: string | null;
   isTyping?: boolean;
   streamingText?: string;
   onTranscribe?: (messageId: string) => void;
@@ -92,9 +89,7 @@ const STREAMING_TIMESTAMP = 0; // Static value to avoid Date.now() during render
 export const ChatArea = forwardRef<HTMLDivElement, ChatAreaProps>(function ChatArea({
   messages,
   companionName,
-  currentReconstruction,
-  currentVariants,
-  isAnalysing,
+  processingMessageId,
   isTyping = false,
   streamingText = "",
   onTranscribe,
@@ -105,16 +100,10 @@ export const ChatArea = forwardRef<HTMLDivElement, ChatAreaProps>(function ChatA
   const scrollRef = (ref as React.RefObject<HTMLDivElement | null>) || internalRef;
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Индекс последнего user message (для показа Reconstruction/Variants)
-  const lastUserMessageIndex = useMemo(
-    () => messages.findLastIndex((m) => m.sender === "user"),
-    [messages]
-  );
-
   // Автоскролл при новых сообщениях и streaming
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, currentReconstruction, currentVariants, isAnalysing, streamingText]);
+  }, [messages, processingMessageId, streamingText]);
 
   return (
     <div
@@ -161,9 +150,8 @@ export const ChatArea = forwardRef<HTMLDivElement, ChatAreaProps>(function ChatA
       )}
 
       {/* Messages */}
-      {messages.map((message, index) => {
-        const isLastUserMessage =
-          message.sender === "user" && index === lastUserMessageIndex;
+      {messages.map((message) => {
+        const isProcessing = message.sender === "user" && processingMessageId === message.id;
 
         return (
           <React.Fragment key={message.id}>
@@ -177,25 +165,26 @@ export const ChatArea = forwardRef<HTMLDivElement, ChatAreaProps>(function ChatA
                 message={message}
                 onTranscribe={() => onTranscribe?.(message.id)}
                 onAnalyse={() => onAnalyse?.(message.id)}
-                isAnalysing={isAnalysing && isLastUserMessage}
+                isAnalysing={isProcessing}
               />
             )}
 
-            {/* Показываем Reconstruction и Variants после последнего user message */}
-            {isLastUserMessage && (
+            {/* Per-message Reconstruction и Variants */}
+            {message.sender === "user" && (
               <>
-                {currentReconstruction && (
+                {message.reconstruction && (
                   <ReconstructionBlock
-                    original={message.text || currentReconstruction.original_intent}
-                    corrected={currentReconstruction.corrected}
-                    explanation={currentReconstruction.explanation}
-                    errorType={currentReconstruction.error_type}
+                    original={message.text || message.reconstruction.original_intent}
+                    corrected={message.reconstruction.corrected}
+                    explanation={message.reconstruction.explanation}
+                    errorType={message.reconstruction.error_type}
                   />
                 )}
 
-                {currentVariants && (
+                {message.variants && (
                   <VariantCards
-                    variants={currentVariants}
+                    variants={message.variants}
+                    messageId={message.id}
                     onSave={(style, phrase) => onSaveVariant?.(style, phrase)}
                   />
                 )}
@@ -221,7 +210,7 @@ export const ChatArea = forwardRef<HTMLDivElement, ChatAreaProps>(function ChatA
       )}
 
       {/* AI thinking indicator */}
-      {(isAnalysing || isTyping) && !streamingText && (
+      {(processingMessageId !== null || isTyping) && !streamingText && (
         <AIThinking companionName={companionName} />
       )}
 

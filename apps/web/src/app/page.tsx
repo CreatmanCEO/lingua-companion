@@ -6,7 +6,7 @@ import { TabBar, type TabType } from "@/components/layout/TabBar";
 import { ChatArea } from "@/components/layout/ChatArea";
 import { useScrollDirection } from "@/hooks/useScrollDirection";
 import { ScenarioScreen } from "@/components/layout/ScenarioScreen";
-import { VoiceBar, type InputMode } from "@/components/VoiceBar";
+import { VoiceBar } from "@/components/VoiceBar";
 import { SettingsPanel } from "@/components/SettingsPanel";
 import { HintOverlay } from "@/components/HintOverlay";
 import { useChatStore } from "@/store/chatStore";
@@ -32,6 +32,7 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState<TabType>("free-chat");
   const [isTyping, setIsTyping] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [errorToast, setErrorToast] = useState<string | null>(null);
   const [showHints, setShowHints] = useState(() => {
     if (typeof window === "undefined") return false;
     return !localStorage.getItem("lc-hints-seen");
@@ -44,25 +45,25 @@ export default function HomePage() {
   const scrollDirection = useScrollDirection(chatScrollRef);
   const headerHidden = scrollDirection === "down";
 
+  // Auto-dismiss error toast after 5 seconds
+  useEffect(() => {
+    if (errorToast) {
+      const timer = setTimeout(() => setErrorToast(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [errorToast]);
+
   // Settings store
   const { loadFromLocalStorage } = useSettingsStore();
 
   // Zustand store
   const {
     messages,
-    inputMode,
     activeCompanion,
-    currentReconstruction,
-    currentVariants,
-    isAnalysing,
+    processingMessageId,
     addMessage,
     updateMessage,
-    setTranscript,
-    setReconstruction,
-    setVariants,
-    setIsAnalysing,
-    clearAnalysis,
-    setInputMode,
+    setProcessingMessageId,
     streamingCompanionText,
     appendStreamingText,
     clearStreamingText,
@@ -82,23 +83,31 @@ export default function HomePage() {
     sendText,
   } = useVoiceSession({
     onSttResult: (result) => {
-      const currentMessages = useChatStore.getState().messages;
-      const lastUserMessage = currentMessages.filter((m) => m.sender === "user").pop();
-      if (lastUserMessage) {
-        updateMessage(lastUserMessage.id, {
+      const state = useChatStore.getState();
+      const msgId = state.processingMessageId;
+      // Fall back to last user message if no processingMessageId
+      const targetId = msgId || state.messages.filter((m) => m.sender === "user").pop()?.id;
+      if (targetId) {
+        updateMessage(targetId, {
           text: result.text,
           sttResult: result,
           isTranscribed: true,
         });
       }
-      setTranscript(result.text);
     },
     onReconstructionResult: (result) => {
-      setReconstruction(result);
+      const msgId = useChatStore.getState().processingMessageId;
+      if (msgId) {
+        updateMessage(msgId, { reconstruction: result, isAnalysed: true });
+      }
     },
     onVariantsResult: (result) => {
-      setVariants(result);
-      setIsAnalysing(false);
+      const msgId = useChatStore.getState().processingMessageId;
+      if (msgId) {
+        updateMessage(msgId, { variants: result });
+      }
+      // Don't clear processingMessageId here — each result renders independently.
+      // Processing ends when companion_response arrives.
     },
     onCompanionToken: (event) => {
       // Streaming token — показываем typewriter
@@ -108,6 +117,7 @@ export default function HomePage() {
     onCompanionResponse: (result) => {
       // Streaming done — заменяем streaming text на полное сообщение
       clearStreamingText();
+      setProcessingMessageId(null);
       addMessage({
         sender: "companion",
         contentType: "text",
@@ -132,7 +142,8 @@ export default function HomePage() {
     },
     onError: (error) => {
       console.error("WebSocket error:", error);
-      setIsAnalysing(false);
+      setErrorToast(error);
+      setProcessingMessageId(null);
       setIsTyping(false);
       clearStreamingText();
     },
@@ -186,13 +197,12 @@ export default function HomePage() {
       // Блокируем отправку если ещё обрабатывается предыдущее
       if (isProcessing) return;
 
-      clearAnalysis();
-
-      addMessage({
+      const msgId = addMessage({
         sender: "user",
         contentType: "text",
         text,
       });
+      setProcessingMessageId(msgId);
 
       if (isConnected) {
         // Отправляем текст на backend -- companion ответит через WS
@@ -201,6 +211,7 @@ export default function HomePage() {
       } else {
         // Fallback: demo mode без backend
         setIsTyping(true);
+        setProcessingMessageId(null);
         setTimeout(() => {
           setIsTyping(false);
           addMessage({
@@ -211,7 +222,7 @@ export default function HomePage() {
         }, 1500);
       }
     },
-    [addMessage, clearAnalysis, isConnected, isProcessing, sendText, activeCompanion]
+    [addMessage, setProcessingMessageId, isConnected, isProcessing, sendText, activeCompanion]
   );
 
   /**
@@ -221,23 +232,22 @@ export default function HomePage() {
     (blob: Blob) => {
       if (isProcessing) return;
 
-      clearAnalysis();
-
-      addMessage({
+      const msgId = addMessage({
         sender: "user",
         contentType: "voice",
         text: "",
         audioBlob: blob,
         audioDuration: 0,
       });
+      setProcessingMessageId(msgId);
 
       if (isConnected) {
-        setIsAnalysing(true);
         setIsTyping(true);
         sendAudio(blob);
       } else {
         // Demo mode без backend
         setIsTyping(true);
+        setProcessingMessageId(null);
         setTimeout(() => {
           setIsTyping(false);
           addMessage({
@@ -248,7 +258,7 @@ export default function HomePage() {
         }, 2000);
       }
     },
-    [addMessage, clearAnalysis, isConnected, isProcessing, sendAudio, setIsAnalysing, activeCompanion]
+    [addMessage, setProcessingMessageId, isConnected, isProcessing, sendAudio, activeCompanion]
   );
 
   /**
@@ -258,11 +268,11 @@ export default function HomePage() {
     (messageId: string) => {
       const message = useChatStore.getState().messages.find((m) => m.id === messageId);
       if (message?.audioBlob && isConnected) {
-        setIsAnalysing(true);
+        setProcessingMessageId(messageId);
         sendAudio(message.audioBlob);
       }
     },
-    [isConnected, sendAudio, setIsAnalysing]
+    [isConnected, sendAudio, setProcessingMessageId]
   );
 
   /**
@@ -273,8 +283,7 @@ export default function HomePage() {
       const message = useChatStore.getState().messages.find((m) => m.id === messageId);
       if (!message) return;
 
-      setIsAnalysing(true);
-      clearAnalysis();
+      setProcessingMessageId(messageId);
 
       if (message.contentType === "voice" && message.audioBlob && isConnected) {
         sendAudio(message.audioBlob);
@@ -282,13 +291,16 @@ export default function HomePage() {
         // Demo заглушка для текстовых сообщений -- показывает git-diff стиль
         setTimeout(() => {
           const demoReconstructions = getDemoReconstruction(message.text);
-          setReconstruction(demoReconstructions.reconstruction);
-          setVariants(demoReconstructions.variants);
-          setIsAnalysing(false);
+          updateMessage(messageId, {
+            reconstruction: demoReconstructions.reconstruction,
+            variants: demoReconstructions.variants,
+            isAnalysed: true,
+          });
+          setProcessingMessageId(null);
         }, 1500);
       }
     },
-    [isConnected, sendAudio, clearAnalysis, setIsAnalysing, setReconstruction, setVariants]
+    [isConnected, sendAudio, setProcessingMessageId, updateMessage]
   );
 
   /**
@@ -300,16 +312,6 @@ export default function HomePage() {
   }, []);
 
   /**
-   * Обработка переключения режима ввода
-   */
-  const handleModeChange = useCallback(
-    (mode: InputMode) => {
-      setInputMode(mode);
-    },
-    [setInputMode]
-  );
-
-  /**
    * Обработка выбора сценария
    */
   const handleSelectScenario = useCallback((scenarioId: string) => {
@@ -319,6 +321,20 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col h-screen bg-void">
+      {/* Error Toast */}
+      {errorToast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-500/90 text-white px-4 py-2 rounded-lg shadow-lg text-sm animate-fade-slide-up max-w-[90vw]">
+          {errorToast}
+          <button
+            onClick={() => setErrorToast(null)}
+            className="ml-2 opacity-70 hover:opacity-100"
+            aria-label="Dismiss error"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Header + TabBar — auto-hide on scroll down */}
       <div
         className="flex-shrink-0 transition-transform duration-300 will-change-transform"
@@ -332,7 +348,7 @@ export default function HomePage() {
           scenarioName={activeScenario?.name}
           onEndScenario={() => {
             endScenario();
-            clearAnalysis();
+            setProcessingMessageId(null);
             addMessage({
               sender: "companion",
               contentType: "text",
@@ -351,9 +367,7 @@ export default function HomePage() {
           ref={chatScrollRef}
           messages={messages}
           companionName={activeCompanion}
-          currentReconstruction={currentReconstruction}
-          currentVariants={currentVariants}
-          isAnalysing={isAnalysing}
+          processingMessageId={processingMessageId}
           isTyping={isTyping}
           streamingText={streamingCompanionText}
           onTranscribe={handleTranscribe}
@@ -366,13 +380,9 @@ export default function HomePage() {
 
       {/* Voice Bar */}
       <VoiceBar
-        mode={inputMode}
-        onModeChange={handleModeChange}
         onSendText={handleSendText}
         onSendAudio={handleSendAudio}
         isProcessing={isProcessing}
-        companionName={activeCompanion}
-        companionStyle="Professional"
       />
 
       {/* Hint Overlay — first-time onboarding */}

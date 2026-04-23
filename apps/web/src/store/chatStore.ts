@@ -134,11 +134,11 @@ interface ChatState {
   // Сообщения
   messages: Message[];
 
-  // Текущий анализ
-  currentTranscript: string | null;
-  currentReconstruction: ReconstructionResult | null;
-  currentVariants: VariantsResult | null;
-  isAnalysing: boolean;
+  // Per-message processing tracker (replaces global isAnalysing)
+  processingMessageId: string | null;
+
+  // Cached translations (message ID -> translated text)
+  translatedTexts: Record<string, string>;
 
   // Companion
   activeCompanion: CompanionName;
@@ -153,13 +153,10 @@ interface ChatState {
   activeScenario: ScenarioContext | null;
 
   // Actions
-  addMessage: (message: Omit<Message, "id" | "timestamp">) => void;
+  addMessage: (message: Omit<Message, "id" | "timestamp">) => string;
   updateMessage: (id: string, updates: Partial<Message>) => void;
-  setTranscript: (text: string) => void;
-  setReconstruction: (result: ReconstructionResult) => void;
-  setVariants: (result: VariantsResult) => void;
-  setIsAnalysing: (analysing: boolean) => void;
-  clearAnalysis: () => void;
+  setProcessingMessageId: (id: string | null) => void;
+  setTranslation: (id: string, text: string) => void;
   setActiveCompanion: (name: CompanionName) => void;
   setInputMode: (mode: "text" | "voice") => void;
   appendStreamingText: (delta: string) => void;
@@ -187,23 +184,22 @@ function generateId(): string {
 export const useChatStore = create<ChatState>((set) => ({
   // Начальное состояние
   messages: [],
-  currentTranscript: null,
-  currentReconstruction: null,
-  currentVariants: null,
-  isAnalysing: false,
+  processingMessageId: null,
+  translatedTexts: {},
   activeCompanion: "Alex",
   inputMode: "voice",
   streamingCompanionText: "",
   activeScenario: null,
 
   // Actions
-  addMessage: (message) =>
+  addMessage: (message) => {
+    const id = generateId();
     set((state) => {
       const newMessages = [
         ...state.messages,
         {
           ...message,
-          id: generateId(),
+          id,
           timestamp: Date.now(),
         },
       ];
@@ -215,7 +211,9 @@ export const useChatStore = create<ChatState>((set) => ({
         }
       }
       return { messages: newMessages };
-    }),
+    });
+    return id;
+  },
 
   updateMessage: (id, updates) =>
     set((state) => ({
@@ -224,25 +222,13 @@ export const useChatStore = create<ChatState>((set) => ({
       ),
     })),
 
-  setTranscript: (text) =>
-    set({ currentTranscript: text }),
+  setProcessingMessageId: (id) =>
+    set({ processingMessageId: id }),
 
-  setReconstruction: (result) =>
-    set({ currentReconstruction: result }),
-
-  setVariants: (result) =>
-    set({ currentVariants: result }),
-
-  setIsAnalysing: (analysing) =>
-    set({ isAnalysing: analysing }),
-
-  clearAnalysis: () =>
-    set({
-      currentTranscript: null,
-      currentReconstruction: null,
-      currentVariants: null,
-      isAnalysing: false,
-    }),
+  setTranslation: (id, text) =>
+    set((state) => ({
+      translatedTexts: { ...state.translatedTexts, [id]: text },
+    })),
 
   setActiveCompanion: (name) =>
     set({ activeCompanion: name }),
@@ -257,7 +243,7 @@ export const useChatStore = create<ChatState>((set) => ({
     set({ streamingCompanionText: "" }),
 
   clearMessages: () =>
-    set({ messages: [] }),
+    set({ messages: [], translatedTexts: {} }),
 
   startScenario: (scenarioId) =>
     set((state) => {
@@ -266,6 +252,7 @@ export const useChatStore = create<ChatState>((set) => ({
       return {
         activeScenario: context,
         messages: [], // Очищаем историю
+        translatedTexts: {},
       };
     }),
 

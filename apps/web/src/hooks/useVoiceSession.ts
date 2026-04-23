@@ -30,6 +30,7 @@ export interface ReconstructionResult {
 export interface VariantItem {
   text: string;
   context: string;
+  translation?: string;
 }
 
 /**
@@ -128,9 +129,6 @@ interface UseVoiceSessionReturn {
   sendText: (text: string) => void;
 }
 
-/** Начальное состояние pending-результатов */
-const PENDING_INITIAL = { reconstruction: false, variants: false, companion: false };
-
 /**
  * Hook для управления WebSocket сессией голосового ввода
  *
@@ -155,15 +153,6 @@ export function useVoiceSession(
   const processingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const scheduleReconnectRef = useRef<(() => void) | null>(null);
   const callbacksRef = useRef(callbacks);
-
-  // Отслеживание полученных результатов для завершения processing
-  // Backend отправляет reconstruction, variants и companion параллельно
-  // Нужно дождаться ВСЕХ ТРЁХ событий перед завершением processing
-  const pendingResultsRef = useRef<{
-    reconstruction: boolean;
-    variants: boolean;
-    companion: boolean;
-  }>({ ...PENDING_INITIAL });
 
   // Обновляем ref при изменении callbacks
   useEffect(() => {
@@ -191,18 +180,6 @@ export function useVoiceSession(
   }, []);
 
   /**
-   * Проверка: все ожидаемые результаты получены -- завершаем processing
-   */
-  const checkAllPendingDone = useCallback(() => {
-    const p = pendingResultsRef.current;
-    if (p.reconstruction && p.variants && p.companion) {
-      clearProcessingTimeout();
-      setConnectionState("connected");
-      pendingResultsRef.current = { ...PENDING_INITIAL };
-    }
-  }, [clearProcessingTimeout]);
-
-  /**
    * Внутренняя функция подключения
    */
   const connectInternal = useCallback(() => {
@@ -212,8 +189,6 @@ export function useVoiceSession(
       wsRef.current = null;
     }
 
-    // Сбрасываем pending результаты от предыдущей сессии
-    pendingResultsRef.current = { ...PENDING_INITIAL };
     setConnectionState("connecting");
 
     const ws = new WebSocket(`${wsUrl}/ws/session`);
@@ -223,7 +198,6 @@ export function useVoiceSession(
       console.log("[useVoiceSession] Connected");
       setConnectionState("connected");
       reconnectAttemptsRef.current = 0;
-      pendingResultsRef.current = { ...PENDING_INITIAL };
     };
 
     ws.onclose = (event) => {
@@ -250,20 +224,17 @@ export function useVoiceSession(
 
         switch (eventType) {
           case "stt_result":
-            // После STT продолжаем ждать reconstruction, variants и companion
             callbacksRef.current.onSttResult?.(data as SttResult);
             break;
 
           case "reconstruction_result":
-            pendingResultsRef.current.reconstruction = true;
+            // Independent result — renders immediately, doesn't control processing state
             callbacksRef.current.onReconstructionResult?.(data as ReconstructionResult);
-            checkAllPendingDone();
             break;
 
           case "variants_result":
-            pendingResultsRef.current.variants = true;
+            // Independent result — renders immediately, doesn't control processing state
             callbacksRef.current.onVariantsResult?.(data as VariantsResult);
-            checkAllPendingDone();
             break;
 
           case "companion_token":
@@ -271,13 +242,13 @@ export function useVoiceSession(
             break;
 
           case "companion_response":
-            pendingResultsRef.current.companion = true;
+            // Main response received — end processing state
+            clearProcessingTimeout();
+            setConnectionState("connected");
             callbacksRef.current.onCompanionResponse?.(data as CompanionResult);
-            checkAllPendingDone();
             break;
 
           case "onboarding_complete":
-            // Onboarding done — не влияет на pending (onboarding не использует pipeline)
             callbacksRef.current.onOnboardingComplete?.(data as OnboardingCompleteEvent);
             setConnectionState("connected");
             break;
@@ -285,7 +256,6 @@ export function useVoiceSession(
           case "error":
             clearProcessingTimeout();
             setConnectionState("connected");
-            pendingResultsRef.current = { ...PENDING_INITIAL };
             callbacksRef.current.onError?.(data.message || "Unknown error");
             break;
 
@@ -297,7 +267,7 @@ export function useVoiceSession(
         callbacksRef.current.onError?.("Failed to parse server response");
       }
     };
-  }, [wsUrl, clearProcessingTimeout, checkAllPendingDone]);
+  }, [wsUrl, clearProcessingTimeout]);
 
   /**
    * Попытка переподключения с exponential backoff
@@ -361,16 +331,13 @@ export function useVoiceSession(
       return;
     }
 
-    // Сбрасываем флаги ожидания для нового запроса
     clearProcessingTimeout();
-    pendingResultsRef.current = { ...PENDING_INITIAL };
     setConnectionState("processing");
     wsRef.current.send(audioBlob);
 
     // Таймаут 15s -- защита от бесконечного спиннера если backend не ответит
     processingTimeoutRef.current = setTimeout(() => {
       console.warn("[useVoiceSession] Processing timeout (15s)");
-      pendingResultsRef.current = { ...PENDING_INITIAL };
       setConnectionState("connected");
       callbacksRef.current.onError?.("Processing timed out. Please try again.");
     }, 15000);
@@ -402,9 +369,7 @@ export function useVoiceSession(
       return;
     }
 
-    // Сбрасываем флаги для нового запроса
     clearProcessingTimeout();
-    pendingResultsRef.current = { ...PENDING_INITIAL };
     setConnectionState("processing");
 
     wsRef.current.send(JSON.stringify({
@@ -415,7 +380,6 @@ export function useVoiceSession(
     // Таймаут 15s
     processingTimeoutRef.current = setTimeout(() => {
       console.warn("[useVoiceSession] Processing timeout (15s)");
-      pendingResultsRef.current = { ...PENDING_INITIAL };
       setConnectionState("connected");
       callbacksRef.current.onError?.("Processing timed out. Please try again.");
     }, 15000);
