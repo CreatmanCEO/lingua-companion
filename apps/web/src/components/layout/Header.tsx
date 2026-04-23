@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Settings, BookOpen } from "lucide-react";
+import { Settings, BookOpen, LogOut, BarChart3 } from "lucide-react";
 import type { CompanionName } from "@/store/chatStore";
 
 /**
@@ -13,6 +13,8 @@ interface HeaderProps {
   isTyping?: boolean;
   onSettingsClick?: () => void;
   onLibraryClick?: () => void;
+  onStatsClick?: () => void;
+  onEndSession?: () => void;
   scenarioName?: string;
   onEndScenario?: () => void;
 }
@@ -43,6 +45,8 @@ export function Header({
   isTyping = false,
   onSettingsClick,
   onLibraryClick,
+  onStatsClick,
+  onEndSession,
   scenarioName,
   onEndScenario,
 }: HeaderProps) {
@@ -76,8 +80,26 @@ export function Header({
             />
           </div>
 
-          {/* Right: Library + Settings */}
+          {/* Right: End Session + Stats + Library + Settings */}
           <div className="flex items-center gap-1">
+            {onEndSession && (
+              <button
+                type="button"
+                onClick={onEndSession}
+                className="w-9 h-9 rounded-[10px] flex items-center justify-center text-secondary hover:text-red-400 transition-all active:scale-[0.92]"
+                aria-label="End Session"
+              >
+                <LogOut className="w-[18px] h-[18px]" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onStatsClick}
+              className="w-9 h-9 rounded-[10px] flex items-center justify-center text-secondary hover:text-primary transition-all active:scale-[0.92]"
+              aria-label="Stats"
+            >
+              <BarChart3 className="w-[18px] h-[18px]" />
+            </button>
             <button
               type="button"
               onClick={onLibraryClick}

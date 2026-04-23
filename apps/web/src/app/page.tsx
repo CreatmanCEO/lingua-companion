@@ -11,6 +11,8 @@ import { SettingsPanel } from "@/components/SettingsPanel";
 import { HintOverlay } from "@/components/HintOverlay";
 import { PhraseLibrary } from "@/components/PhraseLibrary";
 import { LoginScreen } from "@/components/LoginScreen";
+import { SessionSummary, type SessionSummaryData } from "@/components/SessionSummary";
+import { StatsScreen } from "@/components/StatsScreen";
 import { useChatStore } from "@/store/chatStore";
 import { useSettingsStore } from "@/store/settingsStore";
 import { apiPost } from "@/lib/api";
@@ -39,6 +41,7 @@ export default function HomePage() {
   const [isTyping, setIsTyping] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
   const [errorToast, setErrorToast] = useState<string | null>(null);
   const [showHints, setShowHints] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -48,6 +51,12 @@ export default function HomePage() {
     if (typeof window === "undefined") return false;
     return !localStorage.getItem("lc-onboarded");
   });
+
+  // Session summary state
+  const [sessionStartTime] = useState(() => Date.now());
+  const [summaryData, setSummaryData] = useState<SessionSummaryData | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [showEndConfirm, setShowEndConfirm] = useState(false);
 
   // Check Supabase auth session on mount
   useEffect(() => {
@@ -88,6 +97,7 @@ export default function HomePage() {
     activeScenario,
     startScenario,
     endScenario,
+    clearMessages,
     loadPersistedMessages,
   } = useChatStore();
 
@@ -343,6 +353,56 @@ export default function HomePage() {
   }, [authSession]);
 
   /**
+   * End session: fetch summary from backend
+   */
+  const handleEndSession = useCallback(async () => {
+    setShowEndConfirm(false);
+    setSummaryLoading(true);
+
+    const state = useChatStore.getState();
+    const history = state.messages.map((m) => ({
+      role: m.sender === "user" ? "user" : "assistant",
+      content: m.text,
+    }));
+    const durationSeconds = Math.floor((Date.now() - sessionStartTime) / 1000);
+
+    try {
+      const data = await apiPost("/api/v1/session/summary", {
+        history,
+        error_history: [], // TODO: track errors in a future iteration
+        duration_seconds: durationSeconds,
+        phrases_saved: 0,
+      });
+      setSummaryData(data as SessionSummaryData);
+    } catch {
+      // Fallback summary if backend is unavailable
+      const userMsgCount = state.messages.filter((m) => m.sender === "user").length;
+      setSummaryData({
+        duration_min: Math.floor(durationSeconds / 60),
+        message_count: userMsgCount,
+        new_words: [],
+        top_errors: [],
+        advice: "Great practice session! Keep going!",
+      });
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, [sessionStartTime]);
+
+  /**
+   * Start a new session: clear chat and reset timer
+   */
+  const handleNewSession = useCallback(() => {
+    setSummaryData(null);
+    clearMessages();
+    addMessage({
+      sender: "companion",
+      contentType: "text",
+      text: getWelcomeMessage(activeCompanion),
+    });
+  }, [clearMessages, addMessage, activeCompanion]);
+
+  /**
    * Обработка выбора сценария
    */
   const handleSelectScenario = useCallback((scenarioId: string) => {
@@ -402,6 +462,8 @@ export default function HomePage() {
           isTyping={isTyping}
           onSettingsClick={() => setSettingsOpen(true)}
           onLibraryClick={() => setLibraryOpen(true)}
+          onStatsClick={() => setStatsOpen(true)}
+          onEndSession={() => setShowEndConfirm(true)}
           scenarioName={activeScenario?.name}
           onEndScenario={() => {
             endScenario();
@@ -450,6 +512,58 @@ export default function HomePage() {
         open={libraryOpen}
         onOpenChange={setLibraryOpen}
       />
+
+      {/* Stats Screen */}
+      <StatsScreen
+        open={statsOpen}
+        onOpenChange={setStatsOpen}
+      />
+
+      {/* End Session Confirmation Dialog */}
+      {showEndConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-surface border border-subtle rounded-2xl shadow-xl w-[85vw] max-w-sm p-6">
+            <h3 className="text-primary font-semibold text-lg mb-2">End Session?</h3>
+            <p className="text-secondary text-size-sm mb-5">
+              End this session and see your learning summary?
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowEndConfirm(false)}
+                className="flex-1 h-10 rounded-xl border border-subtle text-secondary text-size-sm font-medium hover:bg-void transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleEndSession}
+                className="flex-1 h-10 rounded-xl bg-accent text-white text-size-sm font-medium hover:opacity-90 transition-opacity"
+              >
+                End Session
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Summary Loading Overlay */}
+      {summaryLoading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-surface border border-subtle rounded-2xl shadow-xl p-6">
+            <div className="text-primary text-size-sm">Generating summary...</div>
+          </div>
+        </div>
+      )}
+
+      {/* Session Summary Modal */}
+      {summaryData && (
+        <SessionSummary
+          data={summaryData}
+          onNewSession={handleNewSession}
+          onClose={() => setSummaryData(null)}
+        />
+      )}
 
       {/* Settings Panel */}
       <SettingsPanel
