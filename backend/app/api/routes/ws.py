@@ -13,6 +13,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from starlette.websockets import WebSocketState
 
 from app.agents.orchestrator import PipelineOrchestrator, send_event
+from app.api.routes.auth import validate_supabase_token
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +65,8 @@ async def websocket_session(websocket: WebSocket):
     logger.info("WebSocket connected")
 
     session: dict = {
+        "user_id": "anonymous",
+        "user_email": "",
         "companion": "Alex",
         "scenario": None,
         "history": [],
@@ -92,6 +95,16 @@ async def websocket_session(websocket: WebSocket):
                             session["scenario"] = data["scenario"]
                         if "onboarding" in data:
                             session["onboarding"] = data["onboarding"]
+                        # Authenticate user via Supabase token (optional)
+                        if "token" in data:
+                            try:
+                                user = await validate_supabase_token(data["token"])
+                                session["user_id"] = user["id"]
+                                session["user_email"] = user.get("email", "")
+                                logger.info("Authenticated user: %s", user["id"])
+                            except Exception:
+                                logger.debug("Token validation failed, keeping anonymous")
+                                session["user_id"] = "anonymous"
                         continue
 
                     elif msg_type == "text_message":

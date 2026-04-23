@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: Optional[str] = None
     GOOGLE_EMBEDDINGS_MODEL: str = "text-embedding-004"
 
+    # --- Supabase ---
+    SUPABASE_URL: str = ""
+    SUPABASE_ANON_KEY: str = ""
+
     # --- Auth ---
     SECRET_KEY: str = "dev-secret-key-change-in-production"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7
