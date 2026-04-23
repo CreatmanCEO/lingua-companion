@@ -52,6 +52,13 @@ export default function HomePage() {
     return !localStorage.getItem("lc-onboarded");
   });
 
+  // Feature discovery tooltips
+  const [showFeatureTips, setShowFeatureTips] = useState(false);
+  const [featureTipStep, setFeatureTipStep] = useState(0);
+
+  // P2: Inactivity auto-suggest
+  const [sessionSummaryOffered, setSessionSummaryOffered] = useState(false);
+
   // Session summary state
   const [sessionStartTime] = useState(() => Date.now());
   const [summaryData, setSummaryData] = useState<SessionSummaryData | null>(null);
@@ -157,16 +164,21 @@ export default function HomePage() {
       // Onboarding завершён — сохраняем, переключаем companion
       localStorage.setItem("lc-onboarded", "true");
       setIsOnboarding(false);
+      const companion = (event.companion as "Alex" | "Sam" | "Morgan") || activeCompanion;
       if (event.companion) {
-        useChatStore.getState().setActiveCompanion(event.companion as "Alex" | "Sam" | "Morgan");
+        useChatStore.getState().setActiveCompanion(companion);
         sendConfig(event.companion, null);
       }
+      // Personal welcome from chosen companion
+      const welcomeMessages: Record<string, string> = {
+        Alex: "Hi! I'm Alex, your professional English practice partner. Let's work on your business communication skills. What did you work on today?",
+        Sam: "Hey! I'm Sam, nice to meet ya! Let's just chat and have fun with English. So, what's up?",
+        Morgan: "Hello! I'm Morgan, and I'll be your mentor. We'll work on your English step by step. Tell me, what would you like to improve most?",
+      };
       addMessage({
         sender: "companion",
         contentType: "text",
-        text: getWelcomeMessage(
-          (event.companion as "Alex" | "Sam" | "Morgan") || activeCompanion,
-        ),
+        text: welcomeMessages[companion] || welcomeMessages.Alex,
       });
     },
     onError: (error) => {
@@ -178,6 +190,36 @@ export default function HomePage() {
     },
   });
 
+  // P2: Auto-suggest session summary after 60 min inactivity
+  useEffect(() => {
+    if (messages.length < 5 || sessionSummaryOffered) return;
+
+    const checkInactivity = setInterval(() => {
+      const lastMsg = messages[messages.length - 1];
+      if (!lastMsg) return;
+      const elapsed = Date.now() - lastMsg.timestamp;
+      if (elapsed > 60 * 60 * 1000) {
+        addMessage({
+          sender: "companion",
+          contentType: "text",
+          text: "We've been quiet for a while. Would you like to see your session summary? You can find it in the \u22EF menu \u2192 End Session.",
+        });
+        setSessionSummaryOffered(true);
+      }
+    }, 5 * 60 * 1000); // Check every 5 min
+
+    return () => clearInterval(checkInactivity);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages.length, sessionSummaryOffered]);
+
+  // P1: Feature discovery tooltips — show after first login
+  useEffect(() => {
+    if (authSession && authSession !== "loading" && !localStorage.getItem("lc-features-discovered")) {
+      const timer = setTimeout(() => setShowFeatureTips(true), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [authSession]);
+
   // Register Service Worker for push notifications
   useEffect(() => {
     if ("serviceWorker" in navigator && "PushManager" in window) {
@@ -187,7 +229,7 @@ export default function HomePage() {
 
   // Fetch pending companion messages after auth
   useEffect(() => {
-    if (!authSession || authSession === "loading" || authSession === ("demo" as unknown as Session)) return;
+    if (!authSession || authSession === "loading") return;
     apiGet("/api/v1/push/pending")
       .then((resp) => {
         if (resp.messages?.length) {
@@ -448,11 +490,9 @@ export default function HomePage() {
     return (
       <LoginScreen
         onSuccess={() => {
-          // Re-check session (onAuthStateChange will handle it,
-          // but for "skip auth" demo mode we set null -> allow through)
+          // Re-check session after auth (onAuthStateChange will handle it)
           supabase.auth.getSession().then(({ data: { session } }) => {
-            // If still no session (demo skip), use a sentinel to bypass
-            setAuthSession(session ?? ("demo" as unknown as Session));
+            if (session) setAuthSession(session);
           });
         }}
       />
@@ -489,6 +529,7 @@ export default function HomePage() {
           onStatsClick={() => setStatsOpen(true)}
           onEndSession={() => setShowEndConfirm(true)}
           scenarioName={activeScenario?.name}
+          scenario={activeScenario}
           onEndScenario={() => {
             endScenario();
             setProcessingMessageId(null);
@@ -587,6 +628,51 @@ export default function HomePage() {
           onNewSession={handleNewSession}
           onClose={() => setSummaryData(null)}
         />
+      )}
+
+      {/* P1: Feature Discovery Tips */}
+      {showFeatureTips && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-surface border border-subtle rounded-2xl shadow-xl w-full max-w-sm p-5 mb-4">
+            <div className="text-primary font-semibold text-base mb-3">
+              {featureTipStep === 0 && "Record voice or type"}
+              {featureTipStep === 1 && "Translate any message"}
+              {featureTipStep === 2 && "Save useful phrases"}
+              {featureTipStep === 3 && "Track your progress"}
+            </div>
+            <div className="text-secondary text-size-sm mb-4">
+              {featureTipStep === 0 && "Record voice or type \u2014 practice English naturally with your AI companion."}
+              {featureTipStep === 1 && "Tap the RU button to translate any companion message to Russian."}
+              {featureTipStep === 2 && "Save phrases you like \u2014 review them later with spaced repetition in the Phrase Library."}
+              {featureTipStep === 3 && "Check your progress in the \u22EF menu \u2192 Stats & Progress."}
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex gap-1">
+                {[0, 1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="w-2 h-2 rounded-full transition-colors"
+                    style={{ backgroundColor: i === featureTipStep ? "var(--accent)" : "var(--text-muted)" }}
+                  />
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (featureTipStep < 3) {
+                    setFeatureTipStep(featureTipStep + 1);
+                  } else {
+                    setShowFeatureTips(false);
+                    localStorage.setItem("lc-features-discovered", "true");
+                  }
+                }}
+                className="px-4 py-2 rounded-xl bg-accent text-white text-size-sm font-medium hover:opacity-90 transition-opacity"
+              >
+                {featureTipStep < 3 ? "Next" : "Got it!"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Settings Panel */}

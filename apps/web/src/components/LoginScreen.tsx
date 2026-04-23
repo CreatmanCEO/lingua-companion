@@ -149,16 +149,7 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
           </button>
         </div>
 
-        {/* Skip auth for demo */}
-        <div className="text-center mt-6">
-          <button
-            type="button"
-            onClick={onSuccess}
-            className="text-size-xs text-muted hover:text-secondary transition-colors"
-          >
-            Continue without account (demo)
-          </button>
-        </div>
+        {/* Auth required — no demo mode */}
       </div>
     </div>
   );

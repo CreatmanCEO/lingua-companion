@@ -24,6 +24,7 @@ interface StatsData {
   total_errors: number;
   phrases_saved: number;
   recent_sessions: SessionRecord[];
+  error_breakdown?: Record<string, number>;
 }
 
 const EMPTY_STATS: StatsData = {
@@ -90,7 +91,7 @@ export function StatsScreen({ open, onOpenChange }: StatsScreenProps) {
             <div className="text-muted text-size-sm py-8 text-center">Loading...</div>
           ) : (
             <>
-              {/* Streak */}
+              {/* Streak with motivational text */}
               <div className="flex items-center gap-2 py-3 mb-3 border-b border-subtle">
                 <span style={{ fontSize: "28px" }}>
                   {stats.streak > 0 ? "\uD83D\uDD25" : "\u2744\uFE0F"}
@@ -101,8 +102,10 @@ export function StatsScreen({ open, onOpenChange }: StatsScreenProps) {
                   </div>
                   <div className="text-muted text-size-xs">
                     {stats.streak > 0
-                      ? "Keep it going!"
-                      : "Start a streak today"}
+                      ? `\uD83D\uDD25 ${stats.streak} day streak! Don't break it!`
+                      : stats.total_sessions > 0
+                        ? "Start a new streak today!"
+                        : "Start a streak today"}
                   </div>
                 </div>
               </div>
@@ -167,6 +170,25 @@ export function StatsScreen({ open, onOpenChange }: StatsScreenProps) {
                     <div className="text-muted text-size-xs">
                       total corrections across all sessions
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Error breakdown (P4) */}
+              {stats.error_breakdown && Object.keys(stats.error_breakdown).length > 0 && (
+                <div className="mb-4">
+                  <div className="text-secondary text-size-sm font-medium mb-2">
+                    Common Mistakes
+                  </div>
+                  <div className="bg-card rounded-lg border border-subtle divide-y divide-subtle">
+                    {Object.entries(stats.error_breakdown)
+                      .sort(([, a], [, b]) => b - a)
+                      .map(([type, count]) => (
+                        <div key={type} className="flex items-center justify-between px-3 py-2">
+                          <span className="text-primary text-size-sm capitalize">{type.replace(/_/g, " ")}</span>
+                          <span className="text-accent text-size-sm font-medium">{count}x</span>
+                        </div>
+                      ))}
                   </div>
                 </div>
               )}

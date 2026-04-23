@@ -8,6 +8,21 @@
 /** Ключи голосов, соответствующие backend VOICES */
 export type VoiceKey = "us-male" | "us-female" | "gb-male" | "gb-female";
 
+/** Companion name → preferred TTS voice mapping */
+export const COMPANION_VOICES: Record<string, VoiceKey> = {
+  Alex: "us-male",
+  Sam: "us-female",
+  Morgan: "gb-male",
+};
+
+/** Get the voice for a companion (falls back to user's saved voice) */
+export function getCompanionVoice(companionName?: string): VoiceKey {
+  if (companionName && COMPANION_VOICES[companionName]) {
+    return COMPANION_VOICES[companionName];
+  }
+  return getSavedVoice();
+}
+
 const TTS_ENDPOINT = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001"}/api/v1/tts`;
 
 let currentAudio: HTMLAudioElement | null = null;

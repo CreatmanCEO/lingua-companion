@@ -4,7 +4,7 @@ import React, { useState, useCallback, useEffect } from "react";
 import type { Message, CompanionName } from "@/store/chatStore";
 import { useChatStore } from "@/store/chatStore";
 import { ActionPill } from "@/components/ui/ActionPill";
-import { playTts, stopTts } from "@/lib/edgeTts";
+import { playTts, stopTts, getCompanionVoice } from "@/lib/edgeTts";
 import { translateText } from "@/lib/translate";
 
 /**
@@ -154,7 +154,7 @@ function RichLinkCard({ url }: { url: string }) {
  */
 export function CompanionBubble({
   message,
-  companionName: _companionName,
+  companionName,
   isStreaming = false,
   onListen,
 }: CompanionBubbleProps) {
@@ -182,9 +182,11 @@ export function CompanionBubble({
     setIsSpeaking(true);
     onListen?.(message.text);
 
-    playTts(message.text)
+    // Use companion-specific voice personality
+    const voice = getCompanionVoice(companionName);
+    playTts(message.text, voice)
       .finally(() => setIsSpeaking(false));
-  }, [message.text, isSpeaking, onListen]);
+  }, [message.text, isSpeaking, onListen, companionName]);
 
   /**
    * Обработка перевода
