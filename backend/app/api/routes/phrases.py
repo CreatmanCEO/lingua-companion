@@ -95,7 +95,7 @@ async def list_phrases(user: dict = Depends(get_current_user)):
     try:
         from app.agents.memory import _pool
         if not _pool:
-            return {"phrases": []}
+            raise HTTPException(status_code=503, detail="Database unavailable")
 
         async with _pool.acquire() as conn:
             rows = await conn.fetch(
@@ -106,9 +106,11 @@ async def list_phrases(user: dict = Depends(get_current_user)):
                 user["id"]
             )
         return {"phrases": [dict(r) for r in rows]}
+    except HTTPException:
+        raise
     except Exception:
         logger.error("list_phrases failed", exc_info=True)
-        return {"phrases": []}
+        raise HTTPException(status_code=500, detail="Failed to list phrases")
 
 
 @router.get("/due")
@@ -117,7 +119,7 @@ async def due_phrases(user: dict = Depends(get_current_user)):
     try:
         from app.agents.memory import _pool
         if not _pool:
-            return {"phrases": []}
+            raise HTTPException(status_code=503, detail="Database unavailable")
 
         async with _pool.acquire() as conn:
             rows = await conn.fetch(
@@ -128,9 +130,11 @@ async def due_phrases(user: dict = Depends(get_current_user)):
                 user["id"]
             )
         return {"phrases": [dict(r) for r in rows]}
+    except HTTPException:
+        raise
     except Exception:
         logger.error("due_phrases failed", exc_info=True)
-        return {"phrases": []}
+        raise HTTPException(status_code=500, detail="Failed to get due phrases")
 
 
 @router.post("/{phrase_id}/review")

@@ -37,6 +37,9 @@ logger = logging.getLogger(__name__)
 # Максимальное количество сообщений в истории сессии
 MAX_HISTORY_MESSAGES = 20
 
+# Максимальное количество записей в error_history сессии
+MAX_ERROR_HISTORY = 50
+
 
 @dataclass
 class PipelineResult:
@@ -384,6 +387,11 @@ class PipelineOrchestrator:
 
             if not matched:
                 error_history.append({"pattern": original, "type": error_type, "count": 1})
+
+        # Cap error_history size — keep most frequent errors
+        if len(error_history) > MAX_ERROR_HISTORY:
+            error_history.sort(key=lambda e: e["count"], reverse=True)
+            del error_history[MAX_ERROR_HISTORY:]
 
         # Collect repeated errors (3+ occurrences)
         repeated_errors = [

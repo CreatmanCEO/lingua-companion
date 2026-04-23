@@ -1,0 +1,113 @@
+(venv) PS C:\lingua-companion\backend> python -m uvicorn app.main:app
+ --reload --host 0.0.0.0 --port 8001
+INFO:     Will watch for changes in these directories: ['C:\\lingua-companion\\backend']
+INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
+INFO:     Started reloader process [7508] using StatReload
+Process SpawnProcess-1:
+Traceback (most recent call last):
+  File "C:\Python313\Lib\multiprocessing\process.py", line 313, in _bootstrap
+    self.run()
+    ~~~~~~~~^^
+  File "C:\Python313\Lib\multiprocessing\process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\lingua-companion\backend\venv\Lib\site-packages\uvicorn\_subprocess.py", line 80, in subprocess_started
+    target(sockets=sockets)
+    ~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\lingua-companion\backend\venv\Lib\site-packages\uvicorn\server.py", line 75, in run
+    return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
+  File "C:\Python313\Lib\asyncio\runners.py", line 195, in run       
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "C:\Python313\Lib\asyncio\runners.py", line 118, in run       
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Python313\Lib\asyncio\base_events.py", line 725, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "C:\lingua-companion\backend\venv\Lib\site-packages\uvicorn\server.py", line 79, in serve
+    await self._serve(sockets)
+  File "C:\lingua-companion\backend\venv\Lib\site-packages\uvicorn\server.py", line 86, in _serve
+    config.load()
+    ~~~~~~~~~~~^^
+  File "C:\lingua-companion\backend\venv\Lib\site-packages\uvicorn\config.py", line 441, in load
+    self.loaded_app = import_from_string(self.app)
+                      ~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\lingua-companion\backend\venv\Lib\site-packages\uvicorn\importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+  File "C:\Python313\Lib\importlib\__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)      
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^      
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import    
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load 
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked  
+  File "<frozen importlib._bootstrap_external>", line 1026, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "C:\lingua-companion\backend\app\main.py", line 5, in <module>
+    from app.core.config import settings
+  File "C:\lingua-companion\backend\app\core\config.py", line 48, in <module>
+    settings = Settings()
+  File "C:\lingua-companion\backend\venv\Lib\site-packages\pydantic_settings\main.py", line 242, in __init__
+    super().__init__(**__pydantic_self__.__class__._settings_build_values(sources, init_kwargs))
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\lingua-companion\backend\venv\Lib\site-packages\pydantic\main.py", line 250, in __init__
+    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+pydantic_core._pydantic_core.ValidationError: 19 validation errors for Settings
+SECRET_KEY
+  Field required [type=missing, input_value={'DEBUG': 'true', 'DATABA...RAGE_PROVIDER': 'local'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing
+GOOGLE_API_KEY
+  Extra inputs are not permitted [type=extra_forbidden, input_value='AIzaSyBXmsZGNawjG_z9kJoKF0UdUIyYofpnYDE', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/extra_forbidden
+AZURE_SPEECH_KEY
+  Extra inputs are not permitted [type=extra_forbidden, input_value='your_azure_speech_key_here', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/extra_forbidden
+AZURE_SPEECH_REGION
+  Extra inputs are not permitted [type=extra_forbidden, input_value='eastus', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/extra_forbidden
+SUPABASE_URL
+  Extra inputs are not permitted [type=extra_forbidden, input_value='https://chqbcqabqrnaqsiaomly.supabase.co', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/extra_forbidden
+SUPABASE_ANON_KEY
+  Extra inputs are not permitted [type=extra_forbidden, input_value='eyJhbGciOiJIUzI1NiIsInR5...3gcO5fReV4DSL7YN3NoC3_4', input_type=str] 
+    For further information visit https://errors.pydantic.dev/2.12/v/extra_forbidden
+SUPABASE_SERVICE_ROLE_KEY
+  Extra inputs are not permitted [type=extra_forbidden, input_value='eyJhbGciOiJIUzI1NiIsInR5...M8naRVd86bswgMA51M1nRws', input_type=str] 
+    For further information visit https://errors.pydantic.dev/2.12/v/extra_forbidden
+NEXTAUTH_SECRET
+  Extra inputs are not permitted [type=extra_forbidden, input_value='generate_a_random_secret_here', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/extra_forbidden
+NEXTAUTH_URL
+  Extra inputs are not permitted [type=extra_forbidden, input_value='http://localhost:3000', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/extra_forbidden
+GOOGLE_CLIENT_ID
+  Extra inputs are not permitted [type=extra_forbidden, input_value='103072488918212863944', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/extra_forbidden
+GOOGLE_CLIENT_SECRET
+  Extra inputs are not permitted [type=extra_forbidden, input_value='939e764ff1fef4f3873d5adf87f9e627d5347d46', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/extra_forbidden
+REDDIT_CLIENT_ID
+  Extra inputs are not permitted [type=extra_forbidden, input_value='your_reddit_client_id', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/extra_forbidden
+REDDIT_CLIENT_SECRET
+  Extra inputs are not permitted [type=extra_forbidden, input_value='your_reddit_client_secret', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/extra_forbidden
+REDDIT_USER_AGENT
+  Extra inputs are not permitted [type=extra_forbidden, input_value='LinguaCompanion/1.0', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/extra_forbidden
+ENVIRONMENT
+  Extra inputs are not permitted [type=extra_forbidden, input_value='development', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/extra_forbidden
+LOG_LEVEL
+  Extra inputs are not permitted [type=extra_forbidden, input_value='INFO', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/extra_forbidden
+API_URL
+  Extra inputs are not permitted [type=extra_forbidden, input_value='http://localhost:8000', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/extra_forbidden
+NEXT_PUBLIC_API_URL
+  Extra inputs are not permitted [type=extra_forbidden, input_value='http://localhost:8000', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/extra_forbidden
+STORAGE_PROVIDER
+  Extra inputs are not permitted [type=extra_forbidden, input_value='local', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/extra_forbidden

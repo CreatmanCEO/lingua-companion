@@ -52,6 +52,16 @@ async def _topic_discovery_loop():
 async def lifespan(app: FastAPI):
     # Startup
     setup_logging(debug=settings.DEBUG)
+
+    # F1: Ensure litellm can auto-detect the OpenRouter key from environment
+    import os
+    if settings.OPENROUTER_API_KEY:
+        os.environ["OPENROUTER_API_KEY"] = settings.OPENROUTER_API_KEY
+
+    # F2: Initialize DB pool before background tasks start
+    from app.agents.memory import get_pool
+    await get_pool()
+
     print(f"[START] {settings.APP_NAME} v{settings.VERSION} starting...")
     # Start background tasks
     topic_task = asyncio.create_task(_topic_discovery_loop())
@@ -75,7 +85,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3001", "https://lingua.creatman.site"],
+    allow_origins=settings.CORS_ORIGINS.split(","),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

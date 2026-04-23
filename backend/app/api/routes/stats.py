@@ -8,7 +8,7 @@ Session statistics recording and aggregation:
 
 import json
 import logging
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from app.api.routes.auth import get_current_user
 
 logger = logging.getLogger(__name__)
@@ -76,7 +76,7 @@ async def record_session(data: dict, user: dict = Depends(get_current_user)):
     try:
         from app.agents.memory import _pool
         if not _pool:
-            return {"recorded": False}
+            raise HTTPException(status_code=503, detail="Database unavailable")
 
         async with _pool.acquire() as conn:
             await conn.execute(
@@ -90,9 +90,11 @@ async def record_session(data: dict, user: dict = Depends(get_current_user)):
                 data.get("words_learned", 0),
             )
         return {"recorded": True}
+    except HTTPException:
+        raise
     except Exception:
         logger.error("record_session failed", exc_info=True)
-        return {"recorded": False}
+        raise HTTPException(status_code=500, detail="Failed to record session")
 
 
 def _calc_streak(rows) -> int:

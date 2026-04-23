@@ -1,6 +1,6 @@
 import json
 import logging
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from app.api.routes.auth import get_current_user
 
@@ -18,7 +18,7 @@ async def subscribe(req: SubscribeRequest, user: dict = Depends(get_current_user
     try:
         from app.agents.memory import _pool
         if not _pool:
-            return {"subscribed": False}
+            raise HTTPException(status_code=503, detail="Database unavailable")
         async with _pool.acquire() as conn:
             await conn.execute(
                 """INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
@@ -27,9 +27,11 @@ async def subscribe(req: SubscribeRequest, user: dict = Depends(get_current_user
                 user["id"], req.endpoint, req.keys.get("p256dh", ""), req.keys.get("auth", "")
             )
         return {"subscribed": True}
+    except HTTPException:
+        raise
     except Exception:
         logger.error("subscribe failed", exc_info=True)
-        return {"subscribed": False}
+        raise HTTPException(status_code=500, detail="Subscribe failed")
 
 
 @router.get("/pending")

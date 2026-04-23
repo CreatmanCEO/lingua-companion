@@ -44,8 +44,11 @@ class Settings(BaseSettings):
     GOOGLE_EMBEDDINGS_MODEL: str = "text-embedding-004"
 
     # --- Supabase ---
-    SUPABASE_URL: str = ""
-    SUPABASE_ANON_KEY: str = ""
+    SUPABASE_URL: Optional[str] = None
+    SUPABASE_ANON_KEY: Optional[str] = None
+
+    # --- CORS ---
+    CORS_ORIGINS: str = "http://localhost:3001,https://lingua.creatman.site"
 
     # --- Web Push (VAPID) ---
     VAPID_PRIVATE_KEY: Optional[str] = None

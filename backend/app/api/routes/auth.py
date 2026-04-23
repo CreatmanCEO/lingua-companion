@@ -26,6 +26,9 @@ async def validate_supabase_token(token: str) -> dict:
     Returns {"id": ..., "email": ...} on success.
     Raises Exception on failure.
     """
+    if not settings.SUPABASE_URL or not settings.SUPABASE_ANON_KEY:
+        raise ValueError("Supabase not configured (SUPABASE_URL / SUPABASE_ANON_KEY missing)")
+
     async with httpx.AsyncClient() as client:
         resp = await client.get(
             f"{settings.SUPABASE_URL}/auth/v1/user",
