@@ -122,11 +122,11 @@ def test_voices_dict():
 
 
 def test_get_voice_name():
-    """get_voice_name() возвращает правильное имя голоса."""
+    """get_voice_name() returns the voice key (or default for unknown)."""
     from app.agents.tts import get_voice_name
-    assert get_voice_name("us-male") == "en-US-GuyNeural"
-    assert get_voice_name("gb-female") == "en-GB-SoniaNeural"
-    assert get_voice_name("invalid") == "en-US-GuyNeural"  # fallback
+    assert get_voice_name("us-male") == "us-male"
+    assert get_voice_name("gb-female") == "gb-female"
+    assert get_voice_name("invalid") == "us-male"  # fallback to default key
 
 
 @pytest.mark.asyncio
