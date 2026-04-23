@@ -256,7 +256,10 @@ class PipelineOrchestrator:
     # ------------------------------------------------------------------
 
     async def _build_memory_context(self, user_id: str, query: str) -> str | None:
-        """READ: memory search + user facts -> context string."""
+        """READ: memory search + user facts -> context string.
+
+        Side effect: caches raw facts dict in self.session["_cached_facts"].
+        """
         try:
             facts, memories = await asyncio.gather(
                 get_user_facts(user_id),
@@ -266,6 +269,7 @@ class PipelineOrchestrator:
 
             parts = []
             if isinstance(facts, dict) and facts:
+                self.session["_cached_facts"] = facts
                 facts_str = ", ".join(f"{k}: {v}" for k, v in facts.items())
                 parts.append(f"Known facts: {facts_str}")
 
@@ -299,6 +303,8 @@ class PipelineOrchestrator:
         websocket: WebSocket,
         corrected: str,
         memory_context: str | None = None,
+        user_level: str = "B1",
+        repeated_errors: list | None = None,
     ) -> str:
         """Stream companion tokens via WS. Returns full text."""
         companion_name = self.session.get("companion", "Alex")
@@ -311,6 +317,8 @@ class PipelineOrchestrator:
                 history=self.session.get("history", []),
                 scenario=self.session.get("scenario"),
                 memory_context=memory_context,
+                user_level=user_level,
+                repeated_errors=repeated_errors,
             ):
                 if event["type"] == "token":
                     await send_event(websocket, "companion_token", {
@@ -349,12 +357,49 @@ class PipelineOrchestrator:
 
         corrected = reconstruction_result.get("corrected", transcript)
 
+        # --- Error tracking: session-level counting ---
+        error_history = self.session.setdefault("error_history", [])
+
+        for change in reconstruction_result.get("changes", []):
+            error_type = change.get("type", "")
+            original = change.get("original", "").lower()
+
+            # Find matching existing error
+            matched = False
+            for entry in error_history:
+                if entry["type"] == error_type and (
+                    original in entry["pattern"] or entry["pattern"] in original
+                ):
+                    entry["count"] += 1
+                    matched = True
+                    break
+
+            if not matched:
+                error_history.append({"pattern": original, "type": error_type, "count": 1})
+
+        # Collect repeated errors (3+ occurrences)
+        repeated_errors = [
+            f"{e['pattern']} ({e['type']}, {e['count']}x)"
+            for e in error_history if e["count"] >= 3
+        ]
+
         # Memory READ: search + facts -> context for companion
         memory_context = await self._build_memory_context(USER_ID, corrected)
 
+        # --- Adaptive level wiring (uses facts cached by _build_memory_context) ---
+        user_level = "B1"  # default
+        cached_facts = self.session.get("_cached_facts")
+        if cached_facts:
+            user_level = cached_facts.get("level", "B1")
+
         # Start companion streaming
         companion_task = asyncio.create_task(
-            self._stream_companion(websocket, corrected, memory_context=memory_context),
+            self._stream_companion(
+                websocket, corrected,
+                memory_context=memory_context,
+                user_level=user_level,
+                repeated_errors=repeated_errors,
+            ),
             name="companion_stream",
         )
 

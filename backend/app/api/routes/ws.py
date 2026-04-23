@@ -71,6 +71,7 @@ async def websocket_session(websocket: WebSocket):
         "message_timestamps": [],
         "onboarding": False,
         "onboarding_history": [],
+        "error_history": [],
     }
     orchestrator = PipelineOrchestrator(session)
 
