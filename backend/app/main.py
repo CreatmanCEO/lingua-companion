@@ -6,6 +6,7 @@ from app.core.config import settings
 from app.core.logging_config import setup_logging
 from app.api.routes.ws import router as ws_router
 from app.api.routes.tts import router as tts_router
+from app.api.routes.translate import router as translate_router
 
 
 @asynccontextmanager
@@ -41,6 +42,7 @@ app.include_router(ws_router)
 
 # REST routes
 app.include_router(tts_router)
+app.include_router(translate_router)
 
 
 @app.get("/health")
