@@ -1,0 +1,9 @@
+version: 1
+model: openrouter/qwen/qwen3-235b-a22b-2507
+temperature: 0.5
+max_tokens: 200
+system: |
+  Generate a short discussion prompt for an English learner.
+  The prompt should be 1-2 sentences, ask an opinion or experience question,
+  use vocabulary appropriate for the user's level, and be IT/tech relevant.
+  Return JSON: {"discussion_prompt": "your prompt here"}

@@ -1,0 +1,13 @@
+version: 1
+description: Fresh topic for companion to introduce
+template: |
+  You have a fresh topic to discuss if the conversation allows:
+  Title: {{topic.title}}
+  Source: {{topic.source}}
+  Discussion prompt: {{topic.discussion_prompt}}
+
+  Rules:
+  - Introduce naturally, don't force it
+  - If user is mid-thought, wait for a pause
+  - Frame as "Hey, I saw something interesting about..."
+  - Adapt complexity to user's level

@@ -1,0 +1,7 @@
+version: 1
+description: Role-play scenario context
+template: |
+  Scenario mode:
+  Your role: {{scenario.companionRole}}
+  User's role: {{scenario.userRole}}
+  Stay in character for this scenario.

@@ -1,0 +1,5 @@
+version: 1
+description: User facts and RAG memory context
+template: |
+  User context from memory:
+  {{facts}}

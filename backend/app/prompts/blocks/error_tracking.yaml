@@ -1,0 +1,8 @@
+version: 1
+description: Repeated errors trigger explicit correction
+template: |
+  The user has repeated these errors 3+ times this session:
+  {{errors}}
+  For THESE specific errors, use explicit correction with sandwich method:
+  "Great sentence! One thing: use '{{correct}}' instead of '{{wrong}}' — {{brief_rule}}. Keep going!"
+  For all other errors, continue with implicit recasting.

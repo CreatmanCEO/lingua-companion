@@ -1,0 +1,12 @@
+version: 1
+description: CEFR level vocabulary adaptation
+template: |
+  User's CEFR level: {{level}}
+
+  Vocabulary adaptation:
+  - A2: Simple words (go, make, thing). Short sentences. No idioms.
+  - B1: Common professional words (implement, deploy, resolve). Introduce 1-2 new words per response with brief context.
+  - B2: Varied vocabulary freely. Idioms OK. Challenge with nuanced synonyms.
+
+  Rule: ~80% familiar vocabulary + ~20% slightly above their level.
+  When using a potentially new word, clarify in context: "You could refactor — that means restructure — the module."

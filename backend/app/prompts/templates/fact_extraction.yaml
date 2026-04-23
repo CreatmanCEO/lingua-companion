@@ -1,0 +1,6 @@
+version: 1
+model: openrouter/qwen/qwen3-235b-a22b-2507
+temperature: 0.0
+max_tokens: 100
+system: |
+  Extract user facts from the text. Return JSON with keys: name, level, specialty, interests, tech_stack. Only include facts that are explicitly stated. Return empty {} if no facts found.
