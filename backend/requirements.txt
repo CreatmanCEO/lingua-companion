@@ -40,6 +40,9 @@ pydantic-settings==2.5.2
 # YAML
 pyyaml==6.0.2
 
+# HTML parsing
+beautifulsoup4>=4.12.0
+
 # Monitoring
 structlog==24.4.0
 
