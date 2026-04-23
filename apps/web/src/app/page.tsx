@@ -9,9 +9,11 @@ import { ScenarioScreen } from "@/components/layout/ScenarioScreen";
 import { VoiceBar } from "@/components/VoiceBar";
 import { SettingsPanel } from "@/components/SettingsPanel";
 import { HintOverlay } from "@/components/HintOverlay";
+import { PhraseLibrary } from "@/components/PhraseLibrary";
 import { LoginScreen } from "@/components/LoginScreen";
 import { useChatStore } from "@/store/chatStore";
 import { useSettingsStore } from "@/store/settingsStore";
+import { apiPost } from "@/lib/api";
 import { useVoiceSession } from "@/hooks/useVoiceSession";
 import { supabase } from "@/lib/supabase";
 import type { Session } from "@supabase/supabase-js";
@@ -36,6 +38,7 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState<TabType>("free-chat");
   const [isTyping, setIsTyping] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
   const [errorToast, setErrorToast] = useState<string | null>(null);
   const [showHints, setShowHints] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -328,9 +331,16 @@ export default function HomePage() {
    * Обработка сохранения варианта
    */
   const handleSaveVariant = useCallback((style: string, phrase: string) => {
-    console.log("Saved variant:", style, phrase);
-    // TODO: сохранить в Phrase Library
-  }, []);
+    // Save phrase to backend library via API
+    const isLoggedIn = authSession && authSession !== "loading" && typeof authSession === "object" && "user" in authSession;
+    if (!isLoggedIn) {
+      setErrorToast("Login to save phrases");
+      return;
+    }
+    apiPost("/api/v1/phrases", { text: phrase, style }).catch(() => {
+      setErrorToast("Failed to save phrase");
+    });
+  }, [authSession]);
 
   /**
    * Обработка выбора сценария
@@ -391,6 +401,7 @@ export default function HomePage() {
           isOnline={isConnected}
           isTyping={isTyping}
           onSettingsClick={() => setSettingsOpen(true)}
+          onLibraryClick={() => setLibraryOpen(true)}
           scenarioName={activeScenario?.name}
           onEndScenario={() => {
             endScenario();
@@ -433,6 +444,12 @@ export default function HomePage() {
 
       {/* Hint Overlay — first-time onboarding */}
       {showHints && <HintOverlay onComplete={() => setShowHints(false)} />}
+
+      {/* Phrase Library */}
+      <PhraseLibrary
+        open={libraryOpen}
+        onOpenChange={setLibraryOpen}
+      />
 
       {/* Settings Panel */}
       <SettingsPanel

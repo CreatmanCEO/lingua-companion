@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Settings } from "lucide-react";
+import { Settings, BookOpen } from "lucide-react";
 import type { CompanionName } from "@/store/chatStore";
 
 /**
@@ -12,6 +12,7 @@ interface HeaderProps {
   isOnline: boolean;
   isTyping?: boolean;
   onSettingsClick?: () => void;
+  onLibraryClick?: () => void;
   scenarioName?: string;
   onEndScenario?: () => void;
 }
@@ -41,6 +42,7 @@ export function Header({
   isOnline,
   isTyping = false,
   onSettingsClick,
+  onLibraryClick,
   scenarioName,
   onEndScenario,
 }: HeaderProps) {
@@ -74,15 +76,25 @@ export function Header({
             />
           </div>
 
-          {/* Right: Settings gear */}
-          <button
-            type="button"
-            onClick={onSettingsClick}
-            className="w-9 h-9 rounded-[10px] flex items-center justify-center text-secondary hover:text-primary transition-all active:scale-[0.92]"
-            aria-label="Settings"
-          >
-            <Settings className="w-[18px] h-[18px]" />
-          </button>
+          {/* Right: Library + Settings */}
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={onLibraryClick}
+              className="w-9 h-9 rounded-[10px] flex items-center justify-center text-secondary hover:text-primary transition-all active:scale-[0.92]"
+              aria-label="Phrase Library"
+            >
+              <BookOpen className="w-[18px] h-[18px]" />
+            </button>
+            <button
+              type="button"
+              onClick={onSettingsClick}
+              className="w-9 h-9 rounded-[10px] flex items-center justify-center text-secondary hover:text-primary transition-all active:scale-[0.92]"
+              aria-label="Settings"
+            >
+              <Settings className="w-[18px] h-[18px]" />
+            </button>
+          </div>
         </div>
 
         {/* Scenario bar (optional) */}
