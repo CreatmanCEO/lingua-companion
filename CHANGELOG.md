@@ -4,7 +4,36 @@
 
 ---
 
-## [2026-04-23] — Stabilization + Full Feature Completion (Session 7-8)
+## [2026-04-23] — Pre-Deploy Audit + Fixes (Session 7-8, Part 2)
+
+### ✅ Critical Fixes (Deploy Blockers)
+- **fix**: litellm API key — `OPENROUTER_API_KEY` now exported to env so litellm auto-detects it
+- **fix**: DB pool init — `await get_pool()` in lifespan startup before background tasks
+- **fix**: Supabase config — `SUPABASE_URL`/`SUPABASE_ANON_KEY` changed to `Optional[str] = None`, validated at runtime
+- **fix**: CORS from env — `CORS_ORIGINS` config field replaces hardcoded origins
+- **fix**: Consistent error responses — all endpoints return HTTP 503 when DB unavailable (was mix of empty/503)
+- **fix**: `error_history` capped at 50 entries — prevents memory leak in long sessions
+
+### ✅ UX Improvements
+- **fix**: Header dropdown — replaced 4 icon buttons with ⋯ menu (Stats, Library, End Session) + Settings gear
+- **feat**: Welcome message — companion introduces themselves after onboarding (Alex/Sam/Morgan each unique)
+- **feat**: Scenario roles visible — header shows "You: Junior Dev · Alex: Tech Lead" in scenario mode
+- **fix**: Demo mode removed — app requires authentication, no anonymous bypass
+- **feat**: Feature discovery tooltips — 4-step onboarding for new users (voice, translate, save, progress)
+- **feat**: Auto-suggest session summary — companion suggests ending after 60 min inactivity
+- **feat**: Companion voice personality — Alex=us-male, Sam=us-female, Morgan=gb-male (TTS per persona)
+- **feat**: Error breakdown in Stats — shows "Common Mistakes" section with error counts
+- **feat**: Streak motivation text — "🔥 5 day streak!" / "Start a new streak today!"
+- **fix**: Frontend production URLs — `.env.local` with `api.lingua.creatman.site` endpoints
+
+### 📊 Audit Results
+- Backend: **91 tests passing**, 27 issues found and fixed
+- Frontend: **0 critical inconsistencies** — all components coherent
+- 48 total commits on `feat/iteration-7-8`
+
+---
+
+## [2026-04-23] — Stabilization + Full Feature Completion (Session 7-8, Part 1)
 
 ### ✅ Architecture
 - **feat**: Model Router — per-task LLM model routing via OpenRouter (DeepSeek V3.2 for chat/JSON, Qwen3 235B for translation/extraction, Gemma 4 for onboarding)
