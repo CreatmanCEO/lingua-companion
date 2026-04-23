@@ -15,8 +15,23 @@ from app.api.routes.phrases import router as phrases_router
 from app.api.routes.session import router as session_router
 from app.api.routes.stats import router as stats_router
 from app.api.routes.opengraph import router as opengraph_router
+from app.api.routes.push import router as push_router
 
 logger = logging.getLogger(__name__)
+
+
+async def _initiative_check_loop():
+    """Check if companion should send a message (every 30 min)."""
+    while True:
+        await asyncio.sleep(30 * 60)  # 30 minutes
+        try:
+            from app.agents.memory import _pool
+            if not _pool:
+                continue
+            # For now, just log — actual push sending requires VAPID keys
+            logger.info("Initiative check: would check inactive users")
+        except Exception:
+            logger.error("Initiative check failed", exc_info=True)
 
 
 async def _topic_discovery_loop():
@@ -38,11 +53,13 @@ async def lifespan(app: FastAPI):
     # Startup
     setup_logging(debug=settings.DEBUG)
     print(f"[START] {settings.APP_NAME} v{settings.VERSION} starting...")
-    # Start background topic discovery task
+    # Start background tasks
     topic_task = asyncio.create_task(_topic_discovery_loop())
+    initiative_task = asyncio.create_task(_initiative_check_loop())
     yield
     # Shutdown
     topic_task.cancel()
+    initiative_task.cancel()
     from app.agents.memory import close_pool
     await close_pool()
     print("[STOP] Shutting down...")
@@ -75,6 +92,7 @@ app.include_router(phrases_router)
 app.include_router(session_router)
 app.include_router(stats_router)
 app.include_router(opengraph_router)
+app.include_router(push_router)
 
 
 @app.get("/health")
