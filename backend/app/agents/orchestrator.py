@@ -30,8 +30,6 @@ from app.agents.memory import (
 from app.agents.onboarding import (
     get_onboarding_response, extract_onboarding_data, is_onboarding_complete,
 )
-from app.agents.topic_discovery import get_next_topic
-
 logger = logging.getLogger(__name__)
 
 # Максимальное количество сообщений в истории сессии
@@ -421,15 +419,9 @@ class PipelineOrchestrator:
         if cached_facts:
             user_level = cached_facts.get("level", "B1")
 
-        # Topic injection: every 5th message, fetch a fresh topic
+        # Topic injection: disabled — needs proper Rich Link Card UI, not text spam.
+        # TODO: Re-enable when RichLinkCard is wired into companion responses.
         topic = None
-        msg_count = len(self.session.get("history", []))
-        if msg_count > 0 and msg_count % 5 == 0:
-            try:
-                from app.agents.memory import _pool
-                topic = await get_next_topic(_pool, self.user_id)
-            except Exception:
-                logger.debug("Topic fetch skipped", exc_info=True)
 
         # Start companion streaming
         companion_task = asyncio.create_task(

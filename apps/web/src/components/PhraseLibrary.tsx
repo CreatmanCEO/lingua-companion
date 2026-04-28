@@ -191,7 +191,7 @@ export function PhraseLibrary({ open, onOpenChange }: PhraseLibraryProps) {
         </SheetHeader>
 
         {/* Tabs */}
-        <div className="flex gap-2 mt-4 mb-4">
+        <div className="flex gap-2 mt-4 mb-4 px-4">
           <button
             type="button"
             onClick={() => setTab("all")}
@@ -218,11 +218,11 @@ export function PhraseLibrary({ open, onOpenChange }: PhraseLibraryProps) {
 
         {/* Content */}
         {loading ? (
-          <div className="flex items-center justify-center py-12">
+          <div className="flex items-center justify-center py-12 px-4">
             <div className="text-muted text-size-sm">Loading...</div>
           </div>
         ) : phrases.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 gap-2">
+          <div className="flex flex-col items-center justify-center py-12 gap-2 px-4">
             <div className="text-muted text-size-sm">
               {tab === "due" ? "No phrases due for review" : "No saved phrases yet"}
             </div>
@@ -231,7 +231,7 @@ export function PhraseLibrary({ open, onOpenChange }: PhraseLibraryProps) {
             </div>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-2 px-4 pb-8">
             {phrases.map((phrase) => {
               const sc = STYLE_COLORS[phrase.style || ""] || { color: "var(--text-primary)", bg: "var(--bg-card)" };
               return (

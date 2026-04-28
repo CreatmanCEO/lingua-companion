@@ -192,7 +192,7 @@ export function VoiceBar({
           disabled={isProcessing}
           className={cn(
             "flex-1 bg-input border border-subtle rounded-lg",
-            "px-3 py-1.5 text-sm text-primary h-9",
+            "px-3 py-1.5 text-[16px] text-primary h-9",
             "placeholder:text-white/30 outline-none",
             "focus:border-accent transition-colors",
             isProcessing && "opacity-50 cursor-not-allowed"

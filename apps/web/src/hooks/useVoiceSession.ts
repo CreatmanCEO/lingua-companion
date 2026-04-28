@@ -152,6 +152,7 @@ export function useVoiceSession(
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const processingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const scheduleReconnectRef = useRef<(() => void) | null>(null);
+  const isUnloadingRef = useRef(false);
   const callbacksRef = useRef(callbacks);
 
   // Обновляем ref при изменении callbacks
@@ -219,7 +220,10 @@ export function useVoiceSession(
 
     ws.onerror = (error) => {
       console.error("[useVoiceSession] WebSocket error:", error);
-      callbacksRef.current.onError?.("WebSocket connection error");
+      // Suppress error toast during page unload to avoid spurious errors on refresh
+      if (!isUnloadingRef.current) {
+        callbacksRef.current.onError?.("WebSocket connection error");
+      }
     };
 
     ws.onmessage = (event) => {
@@ -389,6 +393,18 @@ export function useVoiceSession(
       callbacksRef.current.onError?.("Processing timed out. Please try again.");
     }, 15000);
   }, [clearProcessingTimeout]);
+
+  /**
+   * Suppress WS errors during page unload (prevents error toast on refresh)
+   */
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      isUnloadingRef.current = true;
+      wsRef.current?.close(1000, "Page unload");
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
 
   /**
    * Cleanup при unmount

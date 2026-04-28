@@ -563,7 +563,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-void">
+    <div className="flex flex-col h-dvh bg-void">
       {/* Error Toast */}
       {errorToast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-500/90 text-white px-4 py-2 rounded-lg shadow-lg text-sm animate-fade-slide-up max-w-[90vw]">

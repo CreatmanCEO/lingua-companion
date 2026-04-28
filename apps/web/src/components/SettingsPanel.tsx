@@ -148,7 +148,7 @@ export function SettingsPanel({ open, onOpenChange, onCompanionChange, userEmail
           <SheetTitle className="text-primary">Settings</SheetTitle>
         </SheetHeader>
 
-        <div className="mt-6 space-y-6">
+        <div className="mt-6 space-y-6 px-4 pb-8">
           {/* Companion */}
           <section>
             <h3 className="text-size-sm font-semibold text-primary mb-2">Companion</h3>

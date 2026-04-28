@@ -86,7 +86,7 @@ export function StatsScreen({ open, onOpenChange }: StatsScreenProps) {
           </SheetTitle>
         </SheetHeader>
 
-        <div className="px-4 pb-6">
+        <div className="px-4 pb-8">
           {loading ? (
             <div className="text-muted text-size-sm py-8 text-center">Loading...</div>
           ) : (
