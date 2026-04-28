@@ -77,6 +77,8 @@ export default function HomePage() {
   }, []);
   // L01: Guard against duplicate pending message fetches
   const pendingFetchedRef = useRef(false);
+  // Guard: suppress welcome useEffect during handleNewSession (prevents duplicate welcomes)
+  const suppressWelcomeRef = useRef(false);
 
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const scrollDirection = useScrollDirection(chatScrollRef);
@@ -135,18 +137,22 @@ export default function HomePage() {
       }
     },
     onReconstructionResult: (result) => {
-      const msgId = useChatStore.getState().processingMessageId;
-      if (msgId) {
-        updateMessage(msgId, { reconstruction: result, isAnalysed: true });
+      const state = useChatStore.getState();
+      const msgId = state.processingMessageId;
+      // Fall back to last user message if companion_response already cleared processingMessageId
+      const targetId = msgId || state.messages.filter((m) => m.sender === "user").pop()?.id;
+      if (targetId) {
+        updateMessage(targetId, { reconstruction: result, isAnalysed: true });
       }
     },
     onVariantsResult: (result) => {
-      const msgId = useChatStore.getState().processingMessageId;
-      if (msgId) {
-        updateMessage(msgId, { variants: result });
+      const state = useChatStore.getState();
+      const msgId = state.processingMessageId;
+      // Fall back to last user message if companion_response already cleared processingMessageId
+      const targetId = msgId || state.messages.filter((m) => m.sender === "user").pop()?.id;
+      if (targetId) {
+        updateMessage(targetId, { variants: result });
       }
-      // Don't clear processingMessageId here — each result renders independently.
-      // Processing ends when companion_response arrives.
     },
     onCompanionToken: (event) => {
       // Streaming token — показываем typewriter
@@ -288,7 +294,13 @@ export default function HomePage() {
 
   // Приветственное сообщение companion при первом рендере или смене сценария
   useEffect(() => {
-    if (messages.length === 0) {
+    // Skip if handleNewSession already added a welcome
+    if (suppressWelcomeRef.current) {
+      suppressWelcomeRef.current = false;
+      return;
+    }
+    const state = useChatStore.getState();
+    if (state.messages.length === 0) {
       const welcomeText = activeScenario
         ? getScenarioWelcomeMessage(activeCompanion, activeScenario)
         : getWelcomeMessage(activeCompanion);
@@ -402,19 +414,24 @@ export default function HomePage() {
       if (message.contentType === "voice" && message.audioBlob && isConnected) {
         sendAudio(message.audioBlob);
       } else if (message.contentType === "text" && message.text) {
-        // Demo заглушка для текстовых сообщений -- показывает git-diff стиль
-        setTimeout(() => {
-          const demoReconstructions = getDemoReconstruction(message.text);
-          updateMessage(messageId, {
-            reconstruction: demoReconstructions.reconstruction,
-            variants: demoReconstructions.variants,
-            isAnalysed: true,
-          });
-          setProcessingMessageId(null);
-        }, 1500);
+        if (isConnected) {
+          // Send text through WS pipeline for real reconstruction + variants
+          sendText(message.text);
+        } else {
+          // Demo fallback without backend
+          setTimeout(() => {
+            const demoReconstructions = getDemoReconstruction(message.text);
+            updateMessage(messageId, {
+              reconstruction: demoReconstructions.reconstruction,
+              variants: demoReconstructions.variants,
+              isAnalysed: true,
+            });
+            setProcessingMessageId(null);
+          }, 1500);
+        }
       }
     },
-    [isConnected, sendAudio, setProcessingMessageId, updateMessage]
+    [isConnected, sendAudio, sendText, setProcessingMessageId, updateMessage]
   );
 
   /**
@@ -446,6 +463,18 @@ export default function HomePage() {
     }));
     const durationSeconds = Math.floor((Date.now() - sessionStartTime) / 1000);
 
+    // Record session stats
+    try {
+      await apiPost("/api/v1/stats/record", {
+        duration_sec: durationSeconds,
+        message_count: state.messages.filter((m) => m.sender === "user").length,
+        error_count: 0, // TODO: track from reconstruction results
+        words_learned: 0,
+      });
+    } catch {
+      // Stats recording is best-effort
+    }
+
     try {
       const data = await apiPost("/api/v1/session/summary", {
         history,
@@ -474,13 +503,22 @@ export default function HomePage() {
    */
   const handleNewSession = useCallback(() => {
     setSummaryData(null);
+    // BUG-1403: Reset all processing state
+    setIsTyping(false);
+    setProcessingMessageId(null);
+    clearStreamingText();
+    // BUG-1402: Suppress welcome useEffect to prevent duplicate
+    suppressWelcomeRef.current = true;
     clearMessages();
     addMessage({
       sender: "companion",
       contentType: "text",
       text: getWelcomeMessage(activeCompanion),
     });
-  }, [clearMessages, addMessage, activeCompanion]);
+    // Reconnect WebSocket to reset server session
+    disconnect();
+    connect();
+  }, [clearMessages, addMessage, activeCompanion, setProcessingMessageId, clearStreamingText, disconnect, connect]);
 
   /**
    * Обработка выбора сценария
@@ -699,6 +737,9 @@ export default function HomePage() {
         userEmail={authSession && typeof authSession === "object" && "user" in authSession ? authSession.user?.email : undefined}
         onLogout={async () => {
           await supabase.auth.signOut();
+          // BUG-1801/1802: Clear all app data on logout
+          const lcKeys = Object.keys(localStorage).filter(k => k.startsWith("lc-"));
+          lcKeys.forEach(k => localStorage.removeItem(k));
           setAuthSession(null);
           setSettingsOpen(false);
         }}

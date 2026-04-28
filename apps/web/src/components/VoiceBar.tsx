@@ -150,7 +150,7 @@ export function VoiceBar({
   if (isRecording) {
     return (
       <div className="flex-shrink-0 bg-voice-bar border-t border-recording/30 px-3 py-[6px] pb-7 relative z-10">
-        <div className="flex items-center gap-2 h-9">
+        <div className="flex items-center gap-2 h-9 max-w-3xl mx-auto">
           {/* Rec dot + timer */}
           <div className="flex items-center gap-1.5 flex-shrink-0">
             <div className="w-2 h-2 rounded-full bg-recording animate-blink" />
@@ -181,7 +181,7 @@ export function VoiceBar({
   // STATE: IDLE or PROCESSING (single row)
   return (
     <div className="flex-shrink-0 bg-voice-bar border-t border-subtle px-3 py-[6px] pb-7 relative z-10">
-      <div className="flex items-center gap-2 h-9">
+      <div className="flex items-center gap-2 h-9 max-w-3xl mx-auto">
         {/* Text input */}
         <input
           type="text"

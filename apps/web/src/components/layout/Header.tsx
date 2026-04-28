@@ -79,8 +79,8 @@ export function Header({
           </div>
 
           {/* Center: Companion name + status dot */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-secondary text-size-sm font-medium">
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <span className="text-secondary text-size-sm font-medium whitespace-nowrap">
               {isTyping ? `${companionName}...` : companionName}
             </span>
             <span

@@ -103,7 +103,7 @@ function ScenarioCard({
       disabled={isLoading}
       className={cn(
         "flex items-center gap-3 w-full px-4 py-[14px] rounded-xl",
-        "bg-card border border-subtle mb-2",
+        "bg-card border border-subtle",
         "text-left transition-all",
         "hover:border-accent/20 active:scale-[0.98]",
         isLoading && "opacity-60 cursor-wait"
@@ -151,23 +151,27 @@ export function ScenarioScreen({ onSelectScenario }: ScenarioScreenProps) {
 
   return (
     <div className="flex-1 overflow-y-auto px-4 py-4 bg-void">
-      {/* Title */}
-      <div
-        className="text-secondary font-semibold uppercase tracking-wide mb-3"
-        style={{ fontSize: "13px", letterSpacing: "0.5px" }}
-      >
-        Choose a scenario
-      </div>
+      <div className="max-w-3xl mx-auto">
+        {/* Title */}
+        <div
+          className="text-secondary font-semibold uppercase tracking-wide mb-3"
+          style={{ fontSize: "13px", letterSpacing: "0.5px" }}
+        >
+          Choose a scenario
+        </div>
 
-      {/* Scenario cards */}
-      {SCENARIOS.map((scenario) => (
-        <ScenarioCard
-          key={scenario.id}
-          scenario={scenario}
-          isLoading={loadingScenario === scenario.id}
-          onClick={() => handleSelectScenario(scenario.id)}
-        />
-      ))}
+        {/* Scenario cards — grid on desktop */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {SCENARIOS.map((scenario) => (
+            <ScenarioCard
+              key={scenario.id}
+              scenario={scenario}
+              isLoading={loadingScenario === scenario.id}
+              onClick={() => handleSelectScenario(scenario.id)}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

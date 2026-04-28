@@ -240,6 +240,12 @@ class PipelineOrchestrator:
                         name=f"onboarding_fact_{key}",
                     )
 
+                # Cache onboarding facts in session so first companion
+                # response has immediate access (DB write is async)
+                self.session["_cached_facts"] = {
+                    k: str(v) for k, v in data.items() if v
+                }
+
                 # Switch to companion mode
                 self.session["onboarding"] = False
 
@@ -279,7 +285,14 @@ class PipelineOrchestrator:
             parts = []
             if isinstance(facts, dict) and facts:
                 self.session["_cached_facts"] = facts
-                facts_str = ", ".join(f"{k}: {v}" for k, v in facts.items())
+            # Use DB facts if available, otherwise fall back to session cache
+            effective_facts = (
+                facts if isinstance(facts, dict) and facts
+                else self.session.get("_cached_facts", {})
+            )
+            if effective_facts:
+                self.session["_cached_facts"] = effective_facts
+                facts_str = ", ".join(f"{k}: {v}" for k, v in effective_facts.items())
                 parts.append(f"Known facts: {facts_str}")
 
             if isinstance(memories, list) and memories:
