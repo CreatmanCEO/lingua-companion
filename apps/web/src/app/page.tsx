@@ -162,12 +162,17 @@ export default function HomePage() {
     onCompanionResponse: (result) => {
       // Streaming done — заменяем streaming text на полное сообщение
       clearStreamingText();
-      setProcessingMessageId(null);
       addMessage({
         sender: "companion",
         contentType: "text",
         text: result.text,
       });
+      // Delay clearing processingMessageId to allow reconstruction/variants to arrive
+      // They may come after companion_response due to async pipeline
+      setTimeout(() => {
+        setProcessingMessageId(null);
+        setIsTyping(false);
+      }, 3000);
     },
     onOnboardingComplete: (event) => {
       // Onboarding завершён — сохраняем, переключаем companion
