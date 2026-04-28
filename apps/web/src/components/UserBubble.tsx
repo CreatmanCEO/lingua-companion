@@ -3,6 +3,7 @@
 import React, { useState, useCallback } from "react";
 import type { Message } from "@/store/chatStore";
 import { ActionPill } from "@/components/ui/ActionPill";
+import { cn } from "@/lib/utils";
 
 /**
  * Props для UserBubble
@@ -10,8 +11,8 @@ import { ActionPill } from "@/components/ui/ActionPill";
 interface UserBubbleProps {
   message: Message;
   onTranscribe?: () => void;
-  onAnalyse?: () => void;
-  isAnalysing?: boolean;
+  onToggleReconstruction?: () => void;
+  onToggleVariants?: () => void;
 }
 
 /**
@@ -55,8 +56,8 @@ function VoiceWaveform() {
 export function UserBubble({
   message,
   onTranscribe,
-  onAnalyse,
-  isAnalysing = false,
+  onToggleReconstruction,
+  onToggleVariants,
 }: UserBubbleProps) {
   const [showTranscript, setShowTranscript] = useState(message.isTranscribed || false);
 
@@ -113,14 +114,41 @@ export function UserBubble({
               <ActionPill onClick={handleTranscribe}>
                 📝 {showTranscript ? "Hide" : "Transcribe"}
               </ActionPill>
-              <ActionPill
-                variant="accent"
-                onClick={onAnalyse}
-                disabled={isAnalysing}
-              >
-                {isAnalysing ? "Analysing..." : "Analyse"}
-              </ActionPill>
             </div>
+
+            {/* Toggle buttons for reconstruction/variants */}
+            {(message.reconstruction || message.variants) && (
+              <div className="flex items-center gap-1 mt-1">
+                {message.reconstruction && (
+                  <button
+                    onClick={onToggleReconstruction}
+                    className={cn(
+                      "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-colors",
+                      message.showReconstruction
+                        ? "bg-green-500/20 text-green-400"
+                        : "bg-white/5 text-white/30 hover:text-white/50"
+                    )}
+                  >
+                    <svg viewBox="0 0 24 24" className="w-3 h-3 fill-current"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+                    Grammar
+                  </button>
+                )}
+                {message.variants && (
+                  <button
+                    onClick={onToggleVariants}
+                    className={cn(
+                      "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-colors",
+                      message.showVariants
+                        ? "bg-blue-500/20 text-blue-400"
+                        : "bg-white/5 text-white/30 hover:text-white/50"
+                    )}
+                  >
+                    <svg viewBox="0 0 24 24" className="w-3 h-3 fill-current"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z"/></svg>
+                    Variants
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           // Text bubble
@@ -132,16 +160,39 @@ export function UserBubble({
               {message.text}
             </p>
 
-            {/* Action button for text */}
-            <div className="flex gap-[6px] mt-2 justify-end">
-              <ActionPill
-                variant="accent"
-                onClick={onAnalyse}
-                disabled={isAnalysing}
-              >
-                {isAnalysing ? "Analysing..." : "Analyse"}
-              </ActionPill>
-            </div>
+            {/* Toggle buttons for reconstruction/variants */}
+            {(message.reconstruction || message.variants) && (
+              <div className="flex items-center gap-1 mt-2">
+                {message.reconstruction && (
+                  <button
+                    onClick={onToggleReconstruction}
+                    className={cn(
+                      "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-colors",
+                      message.showReconstruction
+                        ? "bg-green-500/20 text-green-400"
+                        : "bg-white/5 text-white/30 hover:text-white/50"
+                    )}
+                  >
+                    <svg viewBox="0 0 24 24" className="w-3 h-3 fill-current"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+                    Grammar
+                  </button>
+                )}
+                {message.variants && (
+                  <button
+                    onClick={onToggleVariants}
+                    className={cn(
+                      "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-colors",
+                      message.showVariants
+                        ? "bg-blue-500/20 text-blue-400"
+                        : "bg-white/5 text-white/30 hover:text-white/50"
+                    )}
+                  >
+                    <svg viewBox="0 0 24 24" className="w-3 h-3 fill-current"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z"/></svg>
+                    Variants
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
 

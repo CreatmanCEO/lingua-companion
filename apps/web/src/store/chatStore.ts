@@ -90,6 +90,9 @@ export interface Message {
   // Флаги состояния
   isTranscribed?: boolean;
   isAnalysed?: boolean;
+  // Toggle visibility
+  showReconstruction?: boolean;  // true by default when reconstruction exists
+  showVariants?: boolean;        // false by default, user toggles
 }
 
 /**
@@ -165,6 +168,9 @@ interface ChatState {
   startScenario: (scenarioId: string) => void;
   endScenario: () => void;
   loadPersistedMessages: () => void;
+  toggleReconstruction: (id: string) => void;
+  toggleVariants: (id: string) => void;
+  hideAllAnalysis: () => void;
 }
 
 /**
@@ -276,9 +282,15 @@ export const useChatStore = create<ChatState>((set) => ({
 
   updateMessage: (id, updates) =>
     set((state) => {
-      const newMessages = state.messages.map((msg) =>
-        msg.id === id ? { ...msg, ...updates } : msg
-      );
+      const newMessages = state.messages.map((msg) => {
+        if (msg.id !== id) return msg;
+        const merged = { ...msg, ...updates };
+        // Auto-show reconstruction when it arrives
+        if (updates.reconstruction && merged.showReconstruction === undefined) {
+          merged.showReconstruction = true;
+        }
+        return merged;
+      });
       persistMessages(newMessages);
       return { messages: newMessages };
     }),
@@ -344,5 +356,34 @@ export const useChatStore = create<ChatState>((set) => ({
       const translatedTexts = loadTranslations();
       if (messages.length === 0) return {};
       return { messages, translatedTexts };
+    }),
+
+  toggleReconstruction: (id) =>
+    set((state) => {
+      const newMessages = state.messages.map((msg) =>
+        msg.id === id ? { ...msg, showReconstruction: !msg.showReconstruction } : msg
+      );
+      persistMessages(newMessages);
+      return { messages: newMessages };
+    }),
+
+  toggleVariants: (id) =>
+    set((state) => {
+      const newMessages = state.messages.map((msg) =>
+        msg.id === id ? { ...msg, showVariants: !msg.showVariants } : msg
+      );
+      persistMessages(newMessages);
+      return { messages: newMessages };
+    }),
+
+  hideAllAnalysis: () =>
+    set((state) => {
+      const newMessages = state.messages.map((msg) => ({
+        ...msg,
+        showReconstruction: false,
+        showVariants: false,
+      }));
+      persistMessages(newMessages);
+      return { messages: newMessages };
     }),
 }));

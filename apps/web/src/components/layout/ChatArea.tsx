@@ -5,6 +5,7 @@ import { UserBubble } from "@/components/UserBubble";
 import { CompanionBubble } from "@/components/CompanionBubble";
 import { ReconstructionBlock } from "@/components/ReconstructionBlock";
 import { VariantCards } from "@/components/VariantCards";
+import { useChatStore } from "@/store/chatStore";
 import type { Message, CompanionName } from "@/store/chatStore";
 
 /**
@@ -17,7 +18,6 @@ interface ChatAreaProps {
   isTyping?: boolean;
   streamingText?: string;
   onTranscribe?: (messageId: string) => void;
-  onAnalyse?: (messageId: string) => void;
   onSaveVariant?: (style: string, phrase: string) => void;
 }
 
@@ -93,9 +93,10 @@ export const ChatArea = forwardRef<HTMLDivElement, ChatAreaProps>(function ChatA
   isTyping = false,
   streamingText = "",
   onTranscribe,
-  onAnalyse,
   onSaveVariant,
 }, ref) {
+  const toggleReconstruction = useChatStore((s) => s.toggleReconstruction);
+  const toggleVariants = useChatStore((s) => s.toggleVariants);
   const internalRef = useRef<HTMLDivElement>(null);
   const scrollRef = (ref as React.RefObject<HTMLDivElement | null>) || internalRef;
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -164,15 +165,15 @@ export const ChatArea = forwardRef<HTMLDivElement, ChatAreaProps>(function ChatA
               <UserBubble
                 message={message}
                 onTranscribe={() => onTranscribe?.(message.id)}
-                onAnalyse={() => onAnalyse?.(message.id)}
-                isAnalysing={isProcessing}
+                onToggleReconstruction={() => toggleReconstruction(message.id)}
+                onToggleVariants={() => toggleVariants(message.id)}
               />
             )}
 
-            {/* Per-message Reconstruction и Variants */}
+            {/* Per-message Reconstruction и Variants (toggle-controlled) */}
             {message.sender === "user" && (
               <>
-                {message.reconstruction && (
+                {message.reconstruction && message.showReconstruction && (
                   <ReconstructionBlock
                     original={message.text || message.reconstruction.original_intent}
                     corrected={message.reconstruction.corrected}
@@ -181,7 +182,7 @@ export const ChatArea = forwardRef<HTMLDivElement, ChatAreaProps>(function ChatA
                   />
                 )}
 
-                {message.variants && (
+                {message.variants && message.showVariants && (
                   <VariantCards
                     variants={message.variants}
                     messageId={message.id}

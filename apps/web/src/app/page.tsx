@@ -328,6 +328,9 @@ export default function HomePage() {
       // Блокируем отправку если ещё обрабатывается предыдущее
       if (isProcessing) return;
 
+      // Hide reconstruction/variants of all previous messages
+      useChatStore.getState().hideAllAnalysis();
+
       const msgId = addMessage({
         sender: "user",
         contentType: "text",
@@ -362,6 +365,9 @@ export default function HomePage() {
   const handleSendAudio = useCallback(
     (blob: Blob) => {
       if (isProcessing) return;
+
+      // Hide reconstruction/variants of all previous messages
+      useChatStore.getState().hideAllAnalysis();
 
       const msgId = addMessage({
         sender: "user",
@@ -612,7 +618,6 @@ export default function HomePage() {
           isTyping={isTyping}
           streamingText={streamingCompanionText}
           onTranscribe={handleTranscribe}
-          onAnalyse={handleAnalyse}
           onSaveVariant={handleSaveVariant}
         />
       ) : (
