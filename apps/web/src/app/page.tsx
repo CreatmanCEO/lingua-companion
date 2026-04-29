@@ -280,7 +280,10 @@ export default function HomePage() {
   // L04: Track whether onboarding config was already sent to backend
   const onboardingSentRef = useRef(false);
 
-  // Отправляем session_config при подключении и при смене companion/scenario
+  // Settings store values that affect backend behavior
+  const { level: userLevel, voice: userVoice, topicPreference } = useSettingsStore();
+
+  // Отправляем session_config при подключении и при смене companion/scenario/settings
   useEffect(() => {
     if (isConnected) {
       const token = authSession && authSession !== "loading" ? authSession.access_token : undefined;
@@ -291,11 +294,14 @@ export default function HomePage() {
       }
       sendConfig(activeCompanion, activeScenario, {
         onboarding: shouldOnboard,
+        level: userLevel,
+        voice: userVoice,
+        topicPreference,
         ...(token ? { token } : {}),
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConnected, activeCompanion, activeScenario]);
+  }, [isConnected, activeCompanion, activeScenario, userLevel, userVoice, topicPreference]);
 
   // Приветственное сообщение companion при первом рендере или смене сценария
   useEffect(() => {
@@ -563,7 +569,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="flex flex-col h-dvh bg-void">
+    <div className="flex flex-col bg-void" style={{ height: "100dvh", minHeight: "-webkit-fill-available" }}>
       {/* Error Toast */}
       {errorToast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-500/90 text-white px-4 py-2 rounded-lg shadow-lg text-sm animate-fade-slide-up max-w-[90vw]">

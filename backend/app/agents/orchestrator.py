@@ -413,11 +413,13 @@ class PipelineOrchestrator:
         # Memory READ: search + facts -> context for companion
         memory_context = await self._build_memory_context(self.user_id, corrected)
 
-        # --- Adaptive level wiring (uses facts cached by _build_memory_context) ---
-        user_level = "B1"  # default
-        cached_facts = self.session.get("_cached_facts")
-        if cached_facts:
-            user_level = cached_facts.get("level", "B1")
+        # --- Adaptive level wiring ---
+        # Priority: session_config from frontend > cached DB facts > default
+        user_level = self.session.get("user_level", "B1")
+        if user_level == "B1":
+            cached_facts = self.session.get("_cached_facts")
+            if cached_facts:
+                user_level = cached_facts.get("level", "B1")
 
         # Topic injection: disabled — needs proper Rich Link Card UI, not text spam.
         # TODO: Re-enable when RichLinkCard is wired into companion responses.

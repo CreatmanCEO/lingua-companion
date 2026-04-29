@@ -95,6 +95,10 @@ async def websocket_session(websocket: WebSocket):
                             session["scenario"] = data["scenario"]
                         if "onboarding" in data:
                             session["onboarding"] = data["onboarding"]
+                        if "level" in data:
+                            session["user_level"] = data["level"]
+                        if "topicPreference" in data:
+                            session["topic_preference"] = data["topicPreference"]
                         # Authenticate user via Supabase token (optional)
                         if "token" in data:
                             try:

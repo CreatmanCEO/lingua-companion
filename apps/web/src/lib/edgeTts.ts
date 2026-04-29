@@ -15,12 +15,18 @@ export const COMPANION_VOICES: Record<string, VoiceKey> = {
   Morgan: "gb-male",
 };
 
-/** Get the voice for a companion (falls back to user's saved voice) */
+/** Get the voice — user's saved voice takes priority, companion default as fallback */
 export function getCompanionVoice(companionName?: string): VoiceKey {
+  const saved = getSavedVoice();
+  // If user explicitly changed voice in settings (not default), use their choice
+  if (typeof window !== "undefined" && localStorage.getItem("lc-voice")) {
+    return saved;
+  }
+  // Otherwise use companion personality voice
   if (companionName && COMPANION_VOICES[companionName]) {
     return COMPANION_VOICES[companionName];
   }
-  return getSavedVoice();
+  return saved;
 }
 
 const TTS_ENDPOINT = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001"}/api/v1/tts`;
