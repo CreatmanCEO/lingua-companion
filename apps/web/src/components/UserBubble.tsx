@@ -87,7 +87,7 @@ export function UserBubble({
         {isVoiceMessage ? (
           // Voice bubble
           <div
-            className="bg-user-bubble border border-subtle px-[14px] py-[10px] max-w-[240px]"
+            className="bg-user-bubble border border-subtle px-[14px] py-[10px] max-w-[280px]"
             style={{ borderRadius: "18px 4px 18px 18px" }}
           >
             {/* Waveform */}
@@ -122,29 +122,29 @@ export function UserBubble({
                 {message.reconstruction && (
                   <button
                     onClick={onToggleReconstruction}
+                    title="Grammar"
                     className={cn(
-                      "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-colors",
+                      "flex items-center justify-center w-6 h-6 rounded-lg text-xs transition-colors",
                       message.showReconstruction
                         ? "bg-green-500/20 text-green-400"
                         : "bg-white/5 text-white/30 hover:text-white/50"
                     )}
                   >
-                    <svg viewBox="0 0 24 24" className="w-3 h-3 fill-current"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
-                    Grammar
+                    <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
                   </button>
                 )}
                 {message.variants && (
                   <button
                     onClick={onToggleVariants}
+                    title="Variants"
                     className={cn(
-                      "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-colors",
+                      "flex items-center justify-center w-6 h-6 rounded-lg text-xs transition-colors",
                       message.showVariants
                         ? "bg-blue-500/20 text-blue-400"
                         : "bg-white/5 text-white/30 hover:text-white/50"
                     )}
                   >
-                    <svg viewBox="0 0 24 24" className="w-3 h-3 fill-current"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z"/></svg>
-                    Variants
+                    <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z"/></svg>
                   </button>
                 )}
               </div>
@@ -153,7 +153,7 @@ export function UserBubble({
         ) : (
           // Text bubble
           <div
-            className="bg-user-bubble border border-subtle px-[14px] py-[10px] max-w-[260px]"
+            className="bg-user-bubble border border-subtle px-[14px] py-[10px] max-w-[280px]"
             style={{ borderRadius: "18px 4px 18px 18px" }}
           >
             <p className="text-primary text-size-base leading-[1.55]">
@@ -166,29 +166,29 @@ export function UserBubble({
                 {message.reconstruction && (
                   <button
                     onClick={onToggleReconstruction}
+                    title="Grammar"
                     className={cn(
-                      "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-colors",
+                      "flex items-center justify-center w-6 h-6 rounded-lg text-xs transition-colors",
                       message.showReconstruction
                         ? "bg-green-500/20 text-green-400"
                         : "bg-white/5 text-white/30 hover:text-white/50"
                     )}
                   >
-                    <svg viewBox="0 0 24 24" className="w-3 h-3 fill-current"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
-                    Grammar
+                    <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
                   </button>
                 )}
                 {message.variants && (
                   <button
                     onClick={onToggleVariants}
+                    title="Variants"
                     className={cn(
-                      "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-colors",
+                      "flex items-center justify-center w-6 h-6 rounded-lg text-xs transition-colors",
                       message.showVariants
                         ? "bg-blue-500/20 text-blue-400"
                         : "bg-white/5 text-white/30 hover:text-white/50"
                     )}
                   >
-                    <svg viewBox="0 0 24 24" className="w-3 h-3 fill-current"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z"/></svg>
-                    Variants
+                    <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z"/></svg>
                   </button>
                 )}
               </div>

@@ -11,7 +11,6 @@ import { useSettingsStore, type TopicPreference, type Level } from "@/store/sett
 import type { CompanionName } from "@/store/chatStore";
 import type { VoiceKey } from "@/lib/edgeTts";
 import { playTts } from "@/lib/edgeTts";
-import { apiPost } from "@/lib/api";
 
 interface SettingsPanelProps {
   open: boolean;
@@ -87,7 +86,6 @@ export function SettingsPanel({ open, onOpenChange, onCompanionChange, userEmail
     setNotificationsLoading(true);
     try {
       if (notificationsEnabled) {
-        // Cannot programmatically revoke — just update UI state
         setNotificationsEnabled(false);
         setNotificationsLoading(false);
         return;
@@ -97,33 +95,10 @@ export function SettingsPanel({ open, onOpenChange, onCompanionChange, userEmail
         setNotificationsLoading(false);
         return;
       }
-      const registration = await navigator.serviceWorker.ready;
-      const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-      if (!vapidPublicKey) {
-        console.warn("VAPID public key not configured");
-        setNotificationsEnabled(true);
-        setNotificationsLoading(false);
-        return;
-      }
-      // Convert VAPID key to Uint8Array
-      const urlBase64ToUint8Array = (base64String: string) => {
-        const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-        const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-        const rawData = window.atob(base64);
-        return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
-      };
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
-      });
-      const subJson = subscription.toJSON();
-      await apiPost("/api/v1/push/subscribe", {
-        endpoint: subJson.endpoint,
-        keys: subJson.keys,
-      });
+      // VAPID not configured yet — just mark as enabled locally
       setNotificationsEnabled(true);
     } catch (err) {
-      console.error("Failed to enable notifications:", err);
+      console.error("Notification setup failed:", err);
     } finally {
       setNotificationsLoading(false);
     }

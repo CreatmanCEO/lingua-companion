@@ -212,7 +212,9 @@ function loadMessages(): Message[] {
   try {
     const raw = localStorage.getItem("lc-messages");
     if (!raw) return [];
-    return JSON.parse(raw);
+    const msgs = JSON.parse(raw);
+    // Filter out topic discovery spam persisted from old sessions
+    return msgs.filter((m: Message) => !m.text?.includes("Saw this and thought of you"));
   } catch {
     return [];
   }

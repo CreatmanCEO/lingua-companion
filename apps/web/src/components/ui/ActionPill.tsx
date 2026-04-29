@@ -24,7 +24,7 @@ export function ActionPill({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "inline-flex items-center gap-1 px-[10px] py-1 rounded-full",
+        "inline-flex items-center gap-1 px-[10px] py-1 rounded-lg",
         "text-size-xs font-medium transition-all active:scale-[0.94] select-none",
         isPlaying
           ? "text-success border-success/20 bg-success/10 border"

@@ -230,7 +230,7 @@ export function CompanionBubble({
       <AvatarSmall />
 
       {/* Content */}
-      <div className="max-w-[268px]">
+      <div className="max-w-[280px]">
         {/* Bubble */}
         <div
           className="bg-comp-bubble border border-subtle px-[14px] py-[10px]"

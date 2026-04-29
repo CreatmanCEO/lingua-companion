@@ -5,6 +5,7 @@ Chain: ElevenLabs -> AWS Polly -> Edge-TTS (emergency)
 Circuit breaker: 3 failures -> 60s cooldown per provider.
 LRU cache: 50 entries checked BEFORE chain.
 """
+import re
 import time
 import logging
 from collections import OrderedDict
@@ -16,6 +17,19 @@ import edge_tts
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+
+def _clean_tts_text(text: str) -> str:
+    """Remove markdown formatting that TTS would pronounce literally."""
+    # Remove backticks
+    text = text.replace('`', '')
+    # Remove markdown bold/italic
+    text = re.sub(r'\*{1,3}', '', text)
+    # Remove markdown links [text](url) -> text
+    text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
+    # Clean up extra whitespace
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
 
 # Voice mapping per provider
 VOICE_MAP = {
@@ -246,6 +260,9 @@ async def synthesize(
     Returns:
         bytes: Audio in MP3 format
     """
+    # Strip markdown formatting before any processing (including cache lookup)
+    text = _clean_tts_text(text)
+
     # Normalize voice: if caller passed an Edge-TTS name, map it back to key
     voice_key = voice
     if voice_key not in VOICE_MAP["edge"]:

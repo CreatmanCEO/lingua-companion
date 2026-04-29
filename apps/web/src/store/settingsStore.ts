@@ -66,16 +66,25 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   },
   setTheme: (t) => {
     lsSet("lc-theme", t);
+    if (typeof document !== "undefined") {
+      document.documentElement.classList.remove("dark", "light");
+      document.documentElement.classList.add(t);
+    }
     set({ theme: t });
   },
   loadFromLocalStorage: () => {
+    const theme = ls("lc-theme", "dark") as Theme;
+    if (typeof document !== "undefined") {
+      document.documentElement.classList.remove("dark", "light");
+      document.documentElement.classList.add(theme);
+    }
     set({
       companion: ls("lc-companion", "Alex") as CompanionName,
       voice: ls("lc-voice", "us-male") as VoiceKey,
       rate: ls("lc-rate", "1.0"),
       topicPreference: ls("lc-topic", "mixed") as TopicPreference,
       level: ls("lc-level", "B1") as Level,
-      theme: ls("lc-theme", "dark") as Theme,
+      theme,
     });
   },
 }));
