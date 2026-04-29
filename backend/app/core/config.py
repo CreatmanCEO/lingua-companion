@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     MODEL_VARIANTS: str = "openrouter/deepseek/deepseek-v3.2"
     MODEL_TRANSLATION: str = "openrouter/qwen/qwen3-235b-a22b-2507"
     MODEL_EXTRACTION: str = "openrouter/qwen/qwen3-235b-a22b-2507"
-    MODEL_ONBOARDING: str = "openrouter/google/gemma-4-31b-it:free"
+    MODEL_ONBOARDING: str = "openrouter/deepseek/deepseek-v3.2"
     MODEL_TOPIC_DISCOVERY: str = "openrouter/qwen/qwen3-235b-a22b-2507"
 
     # --- STT ---
