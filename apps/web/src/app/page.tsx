@@ -241,23 +241,8 @@ export default function HomePage() {
     }
   }, []);
 
-  // Fetch pending companion messages after auth (L01: fetch only once)
-  useEffect(() => {
-    if (!authSession || authSession === "loading" || pendingFetchedRef.current) return;
-    pendingFetchedRef.current = true;
-    apiGet("/api/v1/push/pending")
-      .then((resp) => {
-        if (resp.messages?.length) {
-          for (const msg of resp.messages) {
-            addMessage({ sender: "companion", contentType: "text", text: msg.text });
-          }
-        }
-      })
-      .catch(() => {
-        // Silently ignore — pending messages are best-effort
-      });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authSession]);
+  // Pending messages disabled — push notifications feature not ready
+  // TODO: Re-enable when VAPID keys are configured and push is production-ready
 
   // Загрузка настроек и сообщений из localStorage при монтировании
   useEffect(() => {

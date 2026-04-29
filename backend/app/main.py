@@ -63,13 +63,11 @@ async def lifespan(app: FastAPI):
     await get_pool()
 
     print(f"[START] {settings.APP_NAME} v{settings.VERSION} starting...")
-    # Start background tasks
-    topic_task = asyncio.create_task(_topic_discovery_loop())
-    initiative_task = asyncio.create_task(_initiative_check_loop())
+    # Background tasks disabled until push notifications and topic UI are production-ready
+    # topic_task = asyncio.create_task(_topic_discovery_loop())
+    # initiative_task = asyncio.create_task(_initiative_check_loop())
     yield
     # Shutdown
-    topic_task.cancel()
-    initiative_task.cancel()
     from app.agents.memory import close_pool
     await close_pool()
     print("[STOP] Shutting down...")
