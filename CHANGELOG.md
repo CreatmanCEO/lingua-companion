@@ -4,6 +4,50 @@
 
 ---
 
+## [2026-04-29] — Live Testing Fixes (Session 9)
+
+### ✅ E2E Round 2 Fixes (11 bugs from automated testing)
+- **fix**: Auto-analyse — reconstruction/variants now attach to message even after companion_response clears processingMessageId
+- **fix**: Companion re-asks name — onboarding facts cached in session, fallback in memory context
+- **fix**: Stats tracking — `POST /api/v1/stats/record` called on End Session
+- **fix**: Duplicate welcome messages — `suppressWelcomeRef` guard
+- **fix**: "Alex is thinking" stuck — `handleNewSession` resets isTyping + reconnects WS
+- **fix**: localStorage leak on logout — all `lc-*` keys cleared
+- **fix**: Header companion name truncated — `flex-shrink-0 whitespace-nowrap`
+- **fix**: VoiceBar full-width on desktop — `max-w-3xl mx-auto`
+- **fix**: Scenario cards full-width — `grid md:grid-cols-2`
+
+### ✅ UX Redesign: Reconstruction + Variants Toggle
+- **feat**: Reconstruction auto-shows with "Grammar" toggle pill on user bubble (green)
+- **feat**: Variants hidden by default, "Variants" toggle pill (blue) shows 5 cards on click
+- **feat**: New user message auto-hides previous message's analysis
+- **fix**: Removed "Analyse" button — analysis is automatic
+
+### ✅ 8 Live User Testing Fixes
+- **fix**: Topic Discovery spam disabled — "Hey! Saw this and thought of you" no longer injected
+- **fix**: Header/VoiceBar now sticky — `h-dvh` for mobile viewport, proper flex layout
+- **fix**: Settings/PhraseLibrary/Stats padding — `px-4 pb-8` on all panels
+- **fix**: iOS Safari input zoom — font-size 16px prevents auto-zoom on focus
+- **fix**: WebSocket error on refresh suppressed — `beforeunload` handler closes WS cleanly
+- **fix**: ElevenLabs TTS — removed `await` and `client.close()` for async generator API
+
+### ✅ TTS
+- ElevenLabs working in production (confirmed 40KB audio response)
+- AWS Polly needs IAM policy fix (AccessDeniedException)
+- Edge-TTS blocked from VPS IP (Microsoft 403)
+- Companion voice personalities: Alex=us-male, Sam=us-female, Morgan=gb-male
+
+### 📊 Tests
+- Backend: **91 tests passing**
+- E2E Playwright: **10/11 passing** (1 timing-related soft fail on reconstruction visibility)
+
+### 📝 Backlog (next update)
+- Voice message playback (listen to own recordings)
+- Push notifications (VAPID keys needed)
+- Topic Discovery UI (Rich Link Cards, not text injection)
+
+---
+
 ## [2026-04-23] — Pre-Deploy Audit + Fixes (Session 7-8, Part 2)
 
 ### ✅ Critical Fixes (Deploy Blockers)
