@@ -75,11 +75,6 @@ export default function HomePage() {
     });
     return () => subscription.unsubscribe();
   }, []);
-  // L01: Guard against duplicate pending message fetches
-  const pendingFetchedRef = useRef(false);
-  // Guard: suppress welcome useEffect during handleNewSession (prevents duplicate welcomes)
-  const suppressWelcomeRef = useRef(false);
-
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const scrollDirection = useScrollDirection(chatScrollRef);
   const headerHidden = scrollDirection === "down";
@@ -162,6 +157,7 @@ export default function HomePage() {
     onCompanionResponse: (result) => {
       // Streaming done — заменяем streaming text на полное сообщение
       clearStreamingText();
+      setIsTyping(false); // immediately
       addMessage({
         sender: "companion",
         contentType: "text",
@@ -171,18 +167,22 @@ export default function HomePage() {
       // They may come after companion_response due to async pipeline
       setTimeout(() => {
         setProcessingMessageId(null);
-        setIsTyping(false);
-      }, 3000);
+      }, 500);
     },
     onOnboardingComplete: (event) => {
       // Onboarding завершён — сохраняем, переключаем companion
       localStorage.setItem("lc-onboarded", "true");
       setIsOnboarding(false);
+      setIsTyping(false);
+      clearStreamingText();
+
       const companion = (event.companion as "Alex" | "Sam" | "Morgan") || activeCompanion;
+      // Set companion FIRST
       if (event.companion) {
         useChatStore.getState().setActiveCompanion(companion);
-        sendConfig(event.companion, null);
+        sendConfig(companion, null);
       }
+      // THEN add welcome (companion is now set in store)
       // Personal welcome from chosen companion
       const welcomeMessages: Record<string, string> = {
         Alex: "Hi! I'm Alex, your professional English practice partner. Let's work on your business communication skills. What did you work on today?",
@@ -268,17 +268,24 @@ export default function HomePage() {
   // Settings store values that affect backend behavior
   const { level: userLevel, voice: userVoice, topicPreference } = useSettingsStore();
 
-  // Отправляем session_config при подключении и при смене companion/scenario/settings
+  // Separate onboarding-only effect — fires exactly once
+  useEffect(() => {
+    if (isConnected && isOnboarding && !onboardingSentRef.current) {
+      onboardingSentRef.current = true;
+      const token = authSession && authSession !== "loading" ? authSession.access_token : undefined;
+      sendConfig(activeCompanion, null, {
+        onboarding: true,
+        ...(token ? { token } : {}),
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected, isOnboarding]);
+
+  // Separate config effect — NO onboarding flag, fires on settings changes
   useEffect(() => {
     if (isConnected) {
       const token = authSession && authSession !== "loading" ? authSession.access_token : undefined;
-      // L04: Only request onboarding once, and only if localStorage says not onboarded
-      const shouldOnboard = isOnboarding && !onboardingSentRef.current;
-      if (shouldOnboard) {
-        onboardingSentRef.current = true;
-      }
       sendConfig(activeCompanion, activeScenario, {
-        onboarding: shouldOnboard,
         level: userLevel,
         voice: userVoice,
         topicPreference,
@@ -288,26 +295,25 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected, activeCompanion, activeScenario, userLevel, userVoice, topicPreference]);
 
+  // Deduplicated welcome message helper (Bug #2/#5)
+  const addWelcomeMessage = useCallback((companion: string, scenario?: any) => {
+    const state = useChatStore.getState();
+    const lastMsg = state.messages[state.messages.length - 1];
+    // Don't add if last message is already from companion (prevents duplicates)
+    if (lastMsg?.sender === "companion") return;
+
+    const text = scenario
+      ? getScenarioWelcomeMessage(companion, scenario)
+      : getWelcomeMessage(companion);
+    addMessage({ sender: "companion", contentType: "text", text });
+  }, [addMessage]);
+
   // Приветственное сообщение companion при первом рендере или смене сценария
   useEffect(() => {
-    // Skip if handleNewSession already added a welcome
-    if (suppressWelcomeRef.current) {
-      suppressWelcomeRef.current = false;
-      return;
-    }
     const state = useChatStore.getState();
     if (state.messages.length === 0) {
-      const welcomeText = activeScenario
-        ? getScenarioWelcomeMessage(activeCompanion, activeScenario)
-        : getWelcomeMessage(activeCompanion);
-
-      addMessage({
-        sender: "companion",
-        contentType: "text",
-        text: welcomeText,
-      });
+      addWelcomeMessage(activeCompanion, activeScenario || undefined);
     }
-    // Only re-run when scenario changes, not when addMessage/messages change
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeScenario]);
 
@@ -509,18 +515,12 @@ export default function HomePage() {
     setIsTyping(false);
     setProcessingMessageId(null);
     clearStreamingText();
-    // BUG-1402: Suppress welcome useEffect to prevent duplicate
-    suppressWelcomeRef.current = true;
     clearMessages();
-    addMessage({
-      sender: "companion",
-      contentType: "text",
-      text: getWelcomeMessage(activeCompanion),
-    });
+    addWelcomeMessage(activeCompanion);
     // Reconnect WebSocket to reset server session
     disconnect();
     connect();
-  }, [clearMessages, addMessage, activeCompanion, setProcessingMessageId, clearStreamingText, disconnect, connect]);
+  }, [clearMessages, addWelcomeMessage, activeCompanion, setProcessingMessageId, clearStreamingText, disconnect, connect]);
 
   /**
    * Обработка выбора сценария
@@ -587,11 +587,7 @@ export default function HomePage() {
           onEndScenario={() => {
             endScenario();
             setProcessingMessageId(null);
-            addMessage({
-              sender: "companion",
-              contentType: "text",
-              text: getWelcomeMessage(activeCompanion),
-            });
+            addWelcomeMessage(activeCompanion);
           }}
         />
 
@@ -741,6 +737,7 @@ export default function HomePage() {
           // BUG-1801/1802: Clear all app data on logout
           const lcKeys = Object.keys(localStorage).filter(k => k.startsWith("lc-"));
           lcKeys.forEach(k => localStorage.removeItem(k));
+          onboardingSentRef.current = false;
           setAuthSession(null);
           setSettingsOpen(false);
         }}
