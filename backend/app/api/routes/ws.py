@@ -89,17 +89,7 @@ async def websocket_session(websocket: WebSocket):
                     msg_type = data.get("type")
 
                     if msg_type == "session_config":
-                        if "companion" in data:
-                            session["companion"] = data["companion"]
-                        if "scenario" in data:
-                            session["scenario"] = data["scenario"]
-                        if "onboarding" in data:
-                            session["onboarding"] = data["onboarding"]
-                        if "level" in data:
-                            session["user_level"] = data["level"]
-                        if "topicPreference" in data:
-                            session["topic_preference"] = data["topicPreference"]
-                        # Authenticate user via Supabase token (optional)
+                        # 1. Auth FIRST — need user_id for onboarding check
                         if "token" in data:
                             try:
                                 user = await validate_supabase_token(data["token"])
@@ -109,6 +99,33 @@ async def websocket_session(websocket: WebSocket):
                             except Exception:
                                 logger.debug("Token validation failed, keeping anonymous")
                                 session["user_id"] = "anonymous"
+
+                        # 2. Standard config
+                        if "companion" in data:
+                            session["companion"] = data["companion"]
+                        if "scenario" in data:
+                            session["scenario"] = data["scenario"]
+                        if "level" in data:
+                            session["user_level"] = data["level"]
+                        if "topicPreference" in data:
+                            session["topic_preference"] = data["topicPreference"]
+
+                        # 3. Onboarding — check DB facts AFTER auth
+                        if "onboarding" in data and data["onboarding"]:
+                            user_id = session.get("user_id", "anonymous")
+                            skip = False
+                            if user_id != "anonymous":
+                                try:
+                                    from app.agents.memory import get_user_facts
+                                    facts = await get_user_facts(user_id)
+                                    if facts and facts.get("name"):
+                                        skip = True
+                                        logger.info("Skipping onboarding — user %s already has facts", user_id)
+                                except Exception:
+                                    pass
+                            session["onboarding"] = not skip
+                        elif "onboarding" in data:
+                            session["onboarding"] = False
                         continue
 
                     elif msg_type == "text_message":
