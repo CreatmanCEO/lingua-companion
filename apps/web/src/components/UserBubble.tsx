@@ -3,7 +3,6 @@
 import React, { useState, useCallback } from "react";
 import type { Message } from "@/store/chatStore";
 import { ActionPill } from "@/components/ui/ActionPill";
-import { cn } from "@/lib/utils";
 
 /**
  * Props для UserBubble
@@ -116,36 +115,24 @@ export function UserBubble({
               </ActionPill>
             </div>
 
-            {/* Toggle buttons for reconstruction/variants */}
+            {/* Toggle buttons for reconstruction/variants — same ActionPill style as companion */}
             {(message.reconstruction || message.variants) && (
-              <div className="flex items-center gap-1 mt-1">
+              <div className="flex gap-[6px] mt-2">
                 {message.reconstruction && (
-                  <button
+                  <ActionPill
                     onClick={onToggleReconstruction}
-                    title="Grammar"
-                    className={cn(
-                      "flex items-center justify-center w-6 h-6 rounded-lg text-xs transition-colors",
-                      message.showReconstruction
-                        ? "bg-green-500/20 text-green-400"
-                        : "bg-white/5 text-white/30 hover:text-white/50"
-                    )}
+                    variant={message.showReconstruction ? "accent" : "default"}
                   >
-                    <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
-                  </button>
+                    ✓ Grammar
+                  </ActionPill>
                 )}
                 {message.variants && (
-                  <button
+                  <ActionPill
                     onClick={onToggleVariants}
-                    title="Variants"
-                    className={cn(
-                      "flex items-center justify-center w-6 h-6 rounded-lg text-xs transition-colors",
-                      message.showVariants
-                        ? "bg-blue-500/20 text-blue-400"
-                        : "bg-white/5 text-white/30 hover:text-white/50"
-                    )}
+                    variant={message.showVariants ? "accent" : "default"}
                   >
-                    <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z"/></svg>
-                  </button>
+                    ≡ Variants
+                  </ActionPill>
                 )}
               </div>
             )}
@@ -160,36 +147,24 @@ export function UserBubble({
               {message.text}
             </p>
 
-            {/* Toggle buttons for reconstruction/variants */}
+            {/* Toggle buttons for reconstruction/variants — same ActionPill style as companion */}
             {(message.reconstruction || message.variants) && (
-              <div className="flex items-center gap-1 mt-2">
+              <div className="flex gap-[6px] mt-2">
                 {message.reconstruction && (
-                  <button
+                  <ActionPill
                     onClick={onToggleReconstruction}
-                    title="Grammar"
-                    className={cn(
-                      "flex items-center justify-center w-6 h-6 rounded-lg text-xs transition-colors",
-                      message.showReconstruction
-                        ? "bg-green-500/20 text-green-400"
-                        : "bg-white/5 text-white/30 hover:text-white/50"
-                    )}
+                    variant={message.showReconstruction ? "accent" : "default"}
                   >
-                    <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
-                  </button>
+                    ✓ Grammar
+                  </ActionPill>
                 )}
                 {message.variants && (
-                  <button
+                  <ActionPill
                     onClick={onToggleVariants}
-                    title="Variants"
-                    className={cn(
-                      "flex items-center justify-center w-6 h-6 rounded-lg text-xs transition-colors",
-                      message.showVariants
-                        ? "bg-blue-500/20 text-blue-400"
-                        : "bg-white/5 text-white/30 hover:text-white/50"
-                    )}
+                    variant={message.showVariants ? "accent" : "default"}
                   >
-                    <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h16v2H4v-2z"/></svg>
-                  </button>
+                    ≡ Variants
+                  </ActionPill>
                 )}
               </div>
             )}
