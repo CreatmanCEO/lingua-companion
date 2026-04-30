@@ -4,6 +4,38 @@
 
 ---
 
+## [2026-04-30] — README polish & meta (Session 10, docs only)
+
+> Pure docs PR. No backend / frontend code changes. 91 backend tests + E2E 10/11 baseline preserved.
+
+### ✅ Repository hygiene
+- **add**: `LICENSE` (MIT) — was claimed in old README but the file did not exist
+- **add**: `README.ru.md` — full Russian translation mirroring the new English structure
+- **add**: `CONTRIBUTING.md` with priority list (AWS Polly IAM fix, adaptive difficulty, pronunciation UI surfacing, Topic Discovery v2 as Rich Link Cards, voice-message playback, push notifications)
+- **add**: `.github/workflows/validate.yml` — LICENSE / CHANGELOG presence, Python compile of all `backend/app/*.py`, SVG well-formed XML, every `docs/*` asset referenced from README exists, internal Markdown links resolve, `package.json` parseable
+- **add**: `docs/architecture.svg` — system diagram (Next.js 16 → FastAPI WebSocket → 12 agents → Deepgram + Groq + ElevenLabs + Supabase + Redis)
+- **add**: `docs/screenshots/01..05` — five hand-picked screenshots from the manual-test session (Free Chat with Grammar/Variants, Scenarios, Settings with companions, Phrase Library, Learning Progress)
+
+### ✅ README rewrite (English + Russian mirrored)
+- README hero and stack table now reflect **current production reality**, not the obsolete March Phase-1-vs-Phase-2 framing
+- Stack table corrected: Deepgram Nova-3 as **primary** STT (was incorrectly listed as Groq Whisper); ElevenLabs as **production** TTS (was listed as "Phase 2"); DeepSeek added for onboarding (per `adbbcbf`)
+- Project structure tree corrected: removed phantom `apps/mobile/`, added `packages/types`, `infra/docker/`, `tests/e2e/`, `plans/`
+- Feature listing expanded from 7 abstract bullets to 15 actual frontend components plus 12 backend agents and 9 API routes
+- New **Status** callout: actively developed, public access not yet available (intentional — protects production API budgets during iteration)
+- New **Limitations** section: Topic Discovery disabled per `5546803`, AWS Polly IAM blocked, Edge-TTS VPS-blocked, pronunciation wired but not surfaced, rapid-send queue P3
+- New **Related** section cross-links to all four sister Claude Code repos: anti-regression-setup, ai-context-hierarchy, claude-statusline, notebooklm-claude-workflows
+
+### ✅ GitHub metadata
+- 18 topics applied via `gh api` (language-learning, voice-ai, ai-tutor, nextjs, fastapi, deepgram, groq, elevenlabs, supabase, pgvector, turborepo, monorepo, russian-english, code-switching, spaced-repetition, ai-companion, typescript, python)
+- Description updated to lead with current concrete features
+
+### Notes
+
+- Author email leaked in `tests/manual screenshots/photo_2026-04-30_08-52-25.jpg` (Settings → Account section). Screenshot deliberately **not used in README**. Local-only screenshots folder remains in working tree, not committed.
+- Live URL `lingua.creatman.site` deliberately not mentioned anywhere in `README.md` / `README.ru.md` / GitHub description / topics, per author instruction. Demo by request only.
+
+---
+
 ## [2026-04-29] — Live Testing Fixes (Session 9)
 
 ### ✅ E2E Round 2 Fixes (11 bugs from automated testing)
